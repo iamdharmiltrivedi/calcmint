@@ -1,0 +1,36 @@
+{
+  "expo": {
+    "name": "CalcMint",
+    "slug": "finance-calculator",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0B5D3B"
+    },
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.dharmil.financecalculator"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#0B5D3B"
+      },
+      "package": "com.dharmil.financecalculator"
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [],
+    "extra": {
+      "eas": {
+        "projectId": "98e5c2c5-57b9-4c70-817f-221246a0d7d5"
+      }
+    },
+    "owner": "iamdharmiltrivedi"
+  }
+}
