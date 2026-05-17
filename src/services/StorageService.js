@@ -5,6 +5,29 @@ const KEYS = {
   LAST_CALC: '@fc_last_calc',
   EXPENSES: '@fc_expenses',
   GOALS: '@fc_goals',
+  SUBSCRIPTIONS: '@fc_subscriptions',
+  SPLIT_GROUPS: '@fc_split_groups',
+  RECEIPTS: '@fc_receipts',
+  LOANS: '@fc_loans',
+  LOCK: '@fc_lock',
+  SETTINGS: '@fc_settings',
+};
+
+const readJSON = async (key, fallback) => {
+  try {
+    const raw = await AsyncStorage.getItem(key);
+    return raw ? JSON.parse(raw) : fallback;
+  } catch {
+    return fallback;
+  }
+};
+
+const writeJSON = async (key, value) => {
+  try {
+    await AsyncStorage.setItem(key, JSON.stringify(value));
+  } catch (e) {
+    console.warn('[Storage]', key, e);
+  }
 };
 
 const StorageService = {
@@ -19,60 +42,39 @@ const StorageService = {
       console.warn('[Storage] saveCalculatorInputs:', e);
     }
   },
-
-  getLastCalculator: async () => {
-    try {
-      const raw = await AsyncStorage.getItem(KEYS.LAST_CALC);
-      return raw ? JSON.parse(raw) : null;
-    } catch {
-      return null;
-    }
-  },
-
-  getCalculatorInputs: async (calculatorId) => {
-    try {
-      const raw = await AsyncStorage.getItem(KEYS.CALC_INPUT_PREFIX + calculatorId);
-      return raw ? JSON.parse(raw) : null;
-    } catch {
-      return null;
-    }
-  },
+  getLastCalculator: () => readJSON(KEYS.LAST_CALC, null),
+  getCalculatorInputs: (calculatorId) => readJSON(KEYS.CALC_INPUT_PREFIX + calculatorId, null),
 
   // ── Expenses ─────────────────────────────────────────────────────────────
-  saveExpenses: async (expenses) => {
-    try {
-      await AsyncStorage.setItem(KEYS.EXPENSES, JSON.stringify(expenses));
-    } catch (e) {
-      console.warn('[Storage] saveExpenses:', e);
-    }
-  },
-
-  getExpenses: async () => {
-    try {
-      const raw = await AsyncStorage.getItem(KEYS.EXPENSES);
-      return raw ? JSON.parse(raw) : [];
-    } catch {
-      return [];
-    }
-  },
+  saveExpenses: (expenses) => writeJSON(KEYS.EXPENSES, expenses),
+  getExpenses:  () => readJSON(KEYS.EXPENSES, []),
 
   // ── Goals ────────────────────────────────────────────────────────────────
-  saveGoals: async (goals) => {
-    try {
-      await AsyncStorage.setItem(KEYS.GOALS, JSON.stringify(goals));
-    } catch (e) {
-      console.warn('[Storage] saveGoals:', e);
-    }
-  },
+  saveGoals: (goals) => writeJSON(KEYS.GOALS, goals),
+  getGoals:  () => readJSON(KEYS.GOALS, []),
 
-  getGoals: async () => {
-    try {
-      const raw = await AsyncStorage.getItem(KEYS.GOALS);
-      return raw ? JSON.parse(raw) : [];
-    } catch {
-      return [];
-    }
-  },
+  // ── Subscriptions ────────────────────────────────────────────────────────
+  saveSubscriptions: (subs) => writeJSON(KEYS.SUBSCRIPTIONS, subs),
+  getSubscriptions:  () => readJSON(KEYS.SUBSCRIPTIONS, []),
+
+  // ── Split Groups ─────────────────────────────────────────────────────────
+  saveSplitGroups: (groups) => writeJSON(KEYS.SPLIT_GROUPS, groups),
+  getSplitGroups:  () => readJSON(KEYS.SPLIT_GROUPS, []),
+
+  // ── Receipts ─────────────────────────────────────────────────────────────
+  saveReceipts: (receipts) => writeJSON(KEYS.RECEIPTS, receipts),
+  getReceipts:  () => readJSON(KEYS.RECEIPTS, []),
+
+  // ── Loans ────────────────────────────────────────────────────────────────
+  saveLoans: (loans) => writeJSON(KEYS.LOANS, loans),
+  getLoans:  () => readJSON(KEYS.LOANS, []),
+
+  // ── Lock / Settings ──────────────────────────────────────────────────────
+  saveLock: (lock) => writeJSON(KEYS.LOCK, lock),
+  getLock:  () => readJSON(KEYS.LOCK, null),
+
+  saveSettings: (settings) => writeJSON(KEYS.SETTINGS, settings),
+  getSettings:  () => readJSON(KEYS.SETTINGS, { autoLockSec: 0 }),
 
   // ── Utility ──────────────────────────────────────────────────────────────
   clearAll: async () => {

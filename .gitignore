@@ -1,0 +1,61 @@
+# ── OS ───────────────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+
+# ── Node / package managers ──────────────────────────────────────────────────
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# ── Expo / Metro ─────────────────────────────────────────────────────────────
+.expo/
+.expo-shared/
+dist/
+web-build/
+.metro-cache/
+
+# ── Native build outputs (for prebuild / bare workflow) ──────────────────────
+ios/Pods/
+ios/build/
+ios/*.xcworkspace/xcuserdata/
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties
+*.xcuserstate
+
+# ── Environment / secrets ────────────────────────────────────────────────────
+.env
+.env.local
+.env.*.local
+
+# ── Signing & certificates ───────────────────────────────────────────────────
+*.pem
+*.p8
+*.p12
+*.key
+*.keystore
+*.jks
+*.mobileprovision
+
+# ── Google / Firebase service account JSONs ──────────────────────────────────
+# NEVER commit Google Cloud service account keys to git.
+clienci-*.json
+*-firebase-adminsdk-*.json
+service-account*.json
+google-services.json
+GoogleService-Info.plist
+gcp-key*.json
+
+# ── IDE / editor ─────────────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# ── Logs / coverage ──────────────────────────────────────────────────────────
+*.log
+coverage/

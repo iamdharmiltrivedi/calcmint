@@ -86,11 +86,11 @@ export default function HomeScreen({ navigation }) {
               <Text style={{ color: COLORS.gold }}>right in your pocket.</Text>
             </Text>
             <Text style={styles.heroSub}>
-              10 calculators · Indian formats · works offline.
+              12 calculators · Indian formats · works offline.
             </Text>
 
             <View style={styles.heroStats}>
-              <MiniStat label="Calculators" value="10" />
+              <MiniStat label="Calculators" value="12" />
               <MiniStat label="Currency" value="₹ INR" />
               <MiniStat label="Works" value="Offline" />
             </View>

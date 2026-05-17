@@ -1,0 +1,124 @@
+==============================================================================
+CALCMINT - PRODUCT INFORMATION
+==============================================================================
+
+PRODUCT NAME
+  CalcMint
+
+TAGLINE
+  Plan . Save . Grow
+
+ONE-LINE PITCH
+  10 finance calculators in Indian currency format, works offline, on your
+  phone.
+
+CATEGORY
+  Finance / Personal Finance / Productivity
+
+TARGET AUDIENCE
+  Indian users (salaried professionals, investors, home-loan seekers, students)
+  who need quick financial estimates without an internet connection.
+
+------------------------------------------------------------------------------
+PLATFORM & TECH
+------------------------------------------------------------------------------
+
+  Framework        Expo (SDK 54) + React Native 0.81
+  Language         JavaScript (React 19)
+  Navigation       React Navigation (bottom tabs + native stack)
+  Storage          AsyncStorage (local, on-device only)
+  UI               Custom design system with linear gradients and SVG charts
+  Platforms        iOS + Android (single codebase)
+  Bundle ID        com.dharmil.financecalculator
+  Distribution     EAS Build (project ID 98e5c2c5-57b9-4c70-817f-221246a0d7d5)
+
+------------------------------------------------------------------------------
+APP STRUCTURE
+------------------------------------------------------------------------------
+
+  3 bottom tabs:
+    1. Home      - calculator grid + search
+    2. Expenses  - monthly expense logger with category breakdown donut chart
+    3. Goals     - savings-goal tracker with progress bars
+
+  Home tab opens a stack of 10 calculator screens.
+
+------------------------------------------------------------------------------
+CALCULATORS (10 TOTAL)
+------------------------------------------------------------------------------
+
+  1.  Home Loan       - EMI + total interest breakdown, pre-payment scenarios
+  2.  EMI             - generic loan repayment planner
+  3.  SIP             - systematic investment plan future value
+  4.  Lumpsum         - one-time investment growth with CAGR
+  5.  Fixed Deposit   - FD maturity with monthly/quarterly/annual compounding
+  6.  Recurring Dep.  - RD monthly growth and maturity
+  7.  PPF             - 15-year PPF projection at current 7.1% rate
+  8.  ITR Calculator  - Old vs New tax regime comparison (Indian income tax)
+  9.  Goal Planner    - reverse-calculate the monthly SIP needed for a target
+  10. Budget          - 50/30/20 budget allocation
+
+------------------------------------------------------------------------------
+KEY FEATURES
+------------------------------------------------------------------------------
+
+  - 100 percent offline. No accounts, no login, no network calls for app data.
+  - Indian currency formatting (lakh / crore notation).
+  - Persists last-used calculator and last-used inputs per calculator.
+  - Donut charts and bar charts for visual breakdown of results.
+  - "Continue where you left" shortcut on the Home tab.
+  - In-app search across the 10 calculators.
+  - Goal tracking and expense logging persisted locally.
+
+------------------------------------------------------------------------------
+MONETIZATION (GOOGLE ADMOB)
+------------------------------------------------------------------------------
+
+  SDK                  react-native-google-mobile-ads (^15.0.0)
+  Publisher ID         ca-app-pub-7447692286150378
+  Banner unit ID       ca-app-pub-7447692286150378/7573198836
+  Interstitial unit ID ca-app-pub-7447692286150378/2480425349
+
+  PLACEMENTS
+    - Adaptive banner at the bottom of Home, Expenses, Goals.
+    - Adaptive banner at the bottom of every calculator screen (after results).
+    - Interstitial on back-press from any calculator, throttled to once every
+      3 minutes (per session).
+
+  DEV SAFETY
+    - In __DEV__ builds, Google test ad unit IDs are used automatically.
+    - Real ad unit IDs only serve in production builds.
+
+  REMAINING TODO
+    - app.json currently uses Google's test App IDs as placeholders for
+      `androidAppId` and `iosAppId`. Replace with real AdMob App IDs from the
+      AdMob console before publishing to stores.
+
+------------------------------------------------------------------------------
+PRIVACY POSTURE
+------------------------------------------------------------------------------
+
+  - All financial data (inputs, goals, expenses) stays on-device via
+    AsyncStorage. Nothing is uploaded to a server (no backend exists).
+  - The only third-party SDK is Google Mobile Ads, which Google uses for
+    ad serving. Ad requests use `requestNonPersonalizedAdsOnly: true` by
+    default in this build.
+
+------------------------------------------------------------------------------
+BRAND
+------------------------------------------------------------------------------
+
+  Primary color     Emerald green (#0B5D3B)
+  Accent            Gold (used in hero highlights)
+  Theme             Light mode
+  Splash background Emerald green (#0B5D3B)
+
+------------------------------------------------------------------------------
+OWNER / PUBLISHER
+------------------------------------------------------------------------------
+
+  Owner            iamdharmiltrivedi (Expo account)
+  Developer        Dharmil Trivedi
+  Contact          dharmil@superscout.ai
+
+==============================================================================

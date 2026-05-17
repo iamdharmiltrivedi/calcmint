@@ -32,6 +32,26 @@
           "androidAppId": "ca-app-pub-3940256099942544~3347511713",
           "iosAppId": "ca-app-pub-3940256099942544~1458002511"
         }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/icon.png",
+          "color": "#0B5D3B"
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "CalcMint needs access to your photos so you can attach receipts.",
+          "cameraPermission": "CalcMint needs access to your camera so you can capture receipts."
+        }
+      ],
+      [
+        "expo-local-authentication",
+        {
+          "faceIDPermission": "CalcMint uses Face ID to unlock your private vault."
+        }
       ]
     ],
     "extra": {

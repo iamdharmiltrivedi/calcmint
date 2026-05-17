@@ -93,4 +93,22 @@ export const CALCULATORS = [
     softColor: CATEGORY.orange.soft,
     screen: 'BudgetCalculator',
   },
+  {
+    id: 'retirement',
+    title: 'Retirement',
+    icon: 'bed-outline',
+    description: 'Plan your corpus',
+    color: CATEGORY.indigo.c,
+    softColor: CATEGORY.indigo.soft,
+    screen: 'RetirementCalculator',
+  },
+  {
+    id: 'unit_converter',
+    title: 'Unit Converter',
+    icon: 'git-compare-outline',
+    description: 'Length, area, weight',
+    color: CATEGORY.teal.c,
+    softColor: CATEGORY.teal.soft,
+    screen: 'UnitConverter',
+  },
 ];
