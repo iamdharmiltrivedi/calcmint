@@ -10,7 +10,9 @@ import InputField from '../../components/InputField';
 import PrimaryButton from '../../components/PrimaryButton';
 import ResultCard from '../../components/ResultCard';
 import DonutChart from '../../components/DonutChart';
+import AdBanner from '../../components/AdBanner';
 import StorageService from '../../services/StorageService';
+import AdsService from '../../services/AdsService';
 import { formatINR, formatMonths } from '../../utils/formatters';
 
 const CALC_ID = 'home_loan';
@@ -259,7 +261,7 @@ export default function HomeLoanCalculator({ navigation }) {
     <SafeAreaView style={styles.safe} edges={['top']}>
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.back}>
+        <TouchableOpacity onPress={() => { AdsService.maybeShowInterstitial(); navigation.goBack(); }} style={styles.back}>
           <Ionicons name="arrow-back" size={22} color={COLORS.text} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Home Loan Calculator</Text>
@@ -580,6 +582,8 @@ export default function HomeLoanCalculator({ navigation }) {
               )}
             </Animated.View>
           )}
+
+          <AdBanner style={{ marginTop: 18 }} />
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>

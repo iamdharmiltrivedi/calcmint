@@ -8,6 +8,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { COLORS, MONO_STYLE } from '../constants/colors';
 import { CALCULATORS } from '../constants/calculatorData';
 import CalculatorCard from '../components/CalculatorCard';
+import AdBanner from '../components/AdBanner';
 import StorageService from '../services/StorageService';
 
 export default function HomeScreen({ navigation }) {
@@ -85,7 +86,7 @@ export default function HomeScreen({ navigation }) {
               <Text style={{ color: COLORS.gold }}>right in your pocket.</Text>
             </Text>
             <Text style={styles.heroSub}>
-              10 calculators · Indian formats · zero ads · zero tracking.
+              10 calculators · Indian formats · works offline.
             </Text>
 
             <View style={styles.heroStats}>
@@ -170,6 +171,8 @@ export default function HomeScreen({ navigation }) {
             ))
           )}
         </View>
+
+        <AdBanner style={{ marginTop: 18 }} />
       </ScrollView>
     </SafeAreaView>
   );

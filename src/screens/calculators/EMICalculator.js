@@ -7,7 +7,9 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { COLORS, CATEGORY, MONO_STYLE } from '../../constants/colors';
 import CalcHeader from '../../components/CalcHeader';
 import SliderField from '../../components/SliderField';
+import AdBanner from '../../components/AdBanner';
 import StorageService from '../../services/StorageService';
+import AdsService from '../../services/AdsService';
 import { calculateEMI } from '../../utils/calculations';
 import { formatINR, formatINRFull } from '../../utils/formatters';
 
@@ -45,7 +47,7 @@ export default function EMICalculator({ navigation }) {
         icon="calculator"
         accent={ACCENT}
         accentSoft={SOFT}
-        onBack={() => navigation.goBack()}
+        onBack={() => { AdsService.maybeShowInterstitial(); navigation.goBack(); }}
       />
 
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
@@ -89,6 +91,8 @@ export default function EMICalculator({ navigation }) {
               accent={ACCENT} onChange={setYears}
             />
           </View>
+
+          <AdBanner style={{ marginTop: 18 }} />
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>

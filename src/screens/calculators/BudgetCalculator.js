@@ -7,7 +7,9 @@ import { Ionicons } from '@expo/vector-icons';
 import Svg, { Circle } from 'react-native-svg';
 import { COLORS, CATEGORY, MONO_STYLE } from '../../constants/colors';
 import CalcHeader from '../../components/CalcHeader';
+import AdBanner from '../../components/AdBanner';
 import StorageService from '../../services/StorageService';
+import AdsService from '../../services/AdsService';
 import { calculateBudget } from '../../utils/calculations';
 import { formatINR, formatINRFull } from '../../utils/formatters';
 
@@ -51,7 +53,7 @@ export default function BudgetCalculator({ navigation }) {
         icon="pie-chart"
         accent={ACCENT}
         accentSoft={SOFT}
-        onBack={() => navigation.goBack()}
+        onBack={() => { AdsService.maybeShowInterstitial(); navigation.goBack(); }}
       />
 
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
@@ -128,6 +130,8 @@ export default function BudgetCalculator({ navigation }) {
               </Text>
             </View>
           </View>
+
+          <AdBanner style={{ marginTop: 18 }} />
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>

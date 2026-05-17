@@ -8,7 +8,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../../constants/colors';
 import InputField from '../../components/InputField';
 import PrimaryButton from '../../components/PrimaryButton';
+import AdBanner from '../../components/AdBanner';
 import StorageService from '../../services/StorageService';
+import AdsService from '../../services/AdsService';
 import { calculateITR, compareRegimes } from '../../utils/calculations';
 import { formatINRFull, formatPercent } from '../../utils/formatters';
 
@@ -238,7 +240,7 @@ export default function TaxSavingsCalculator({ navigation }) {
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.back}>
+        <TouchableOpacity onPress={() => { AdsService.maybeShowInterstitial(); navigation.goBack(); }} style={styles.back}>
           <Ionicons name="arrow-back" size={22} color={COLORS.text} />
         </TouchableOpacity>
         <View style={{ flex: 1, alignItems: 'center' }}>
@@ -553,6 +555,8 @@ export default function TaxSavingsCalculator({ navigation }) {
               )}
             </Animated.View>
           )}
+
+          <AdBanner style={{ marginTop: 18 }} />
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>

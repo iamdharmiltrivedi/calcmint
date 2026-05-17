@@ -8,6 +8,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../constants/colors';
 import { useApp } from '../context/AppContext';
+import AdBanner from '../components/AdBanner';
 import { calculateGoalSIP } from '../utils/calculations';
 import { formatINR, formatINRFull, formatYears } from '../utils/formatters';
 
@@ -164,6 +165,8 @@ export default function GoalPlannerScreen() {
             );
           })
         )}
+
+        <AdBanner style={{ marginTop: 18 }} />
       </ScrollView>
 
       {/* ── Add Goal Modal ──────────────────────────────────────────────── */}

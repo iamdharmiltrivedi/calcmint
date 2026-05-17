@@ -9,6 +9,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../constants/colors';
 import { EXPENSE_CATEGORIES } from '../constants/categories';
 import DonutChart from '../components/DonutChart';
+import AdBanner from '../components/AdBanner';
 import { useApp } from '../context/AppContext';
 import { formatINR, formatINRFull } from '../utils/formatters';
 
@@ -154,6 +155,8 @@ export default function ExpenseAnalysisScreen() {
             })}
           </View>
         )}
+
+        <AdBanner style={{ marginTop: 18 }} />
       </ScrollView>
 
       {/* ── Add Expense Modal ──────────────────────────────────────────── */}

@@ -11,7 +11,9 @@ import PrimaryButton from '../../components/PrimaryButton';
 import ResultCard from '../../components/ResultCard';
 import DonutChart from '../../components/DonutChart';
 import BarChartComponent from '../../components/BarChartComponent';
+import AdBanner from '../../components/AdBanner';
 import StorageService from '../../services/StorageService';
+import AdsService from '../../services/AdsService';
 import { calculatePPF } from '../../utils/calculations';
 import { formatINR } from '../../utils/formatters';
 
@@ -74,7 +76,7 @@ export default function PPFCalculator({ navigation }) {
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.back}>
+        <TouchableOpacity onPress={() => { AdsService.maybeShowInterstitial(); navigation.goBack(); }} style={styles.back}>
           <Ionicons name="arrow-back" size={22} color={COLORS.text} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>PPF Calculator</Text>
@@ -149,6 +151,8 @@ export default function PPFCalculator({ navigation }) {
               />
             </Animated.View>
           )}
+
+          <AdBanner style={{ marginTop: 18 }} />
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>

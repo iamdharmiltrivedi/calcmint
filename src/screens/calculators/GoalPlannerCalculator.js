@@ -10,7 +10,9 @@ import InputField from '../../components/InputField';
 import PrimaryButton from '../../components/PrimaryButton';
 import ResultCard from '../../components/ResultCard';
 import DonutChart from '../../components/DonutChart';
+import AdBanner from '../../components/AdBanner';
 import StorageService from '../../services/StorageService';
+import AdsService from '../../services/AdsService';
 import { useApp } from '../../context/AppContext';
 import { calculateGoalSIP } from '../../utils/calculations';
 import { formatINR } from '../../utils/formatters';
@@ -90,7 +92,7 @@ export default function GoalPlannerCalculator({ navigation }) {
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.back}>
+        <TouchableOpacity onPress={() => { AdsService.maybeShowInterstitial(); navigation.goBack(); }} style={styles.back}>
           <Ionicons name="arrow-back" size={22} color={COLORS.text} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Goal Planner</Text>
@@ -185,6 +187,8 @@ export default function GoalPlannerCalculator({ navigation }) {
               />
             </Animated.View>
           )}
+
+          <AdBanner style={{ marginTop: 18 }} />
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>

@@ -8,7 +8,9 @@ import { COLORS, CATEGORY, MONO_STYLE } from '../../constants/colors';
 import CalcHeader from '../../components/CalcHeader';
 import SliderField from '../../components/SliderField';
 import PrimaryButton from '../../components/PrimaryButton';
+import AdBanner from '../../components/AdBanner';
 import StorageService from '../../services/StorageService';
+import AdsService from '../../services/AdsService';
 import { calculateSIP } from '../../utils/calculations';
 import { formatINR, formatINRFull } from '../../utils/formatters';
 
@@ -48,7 +50,7 @@ export default function SIPCalculator({ navigation }) {
         icon="trending-up"
         accent={ACCENT}
         accentSoft={SOFT}
-        onBack={() => navigation.goBack()}
+        onBack={() => { AdsService.maybeShowInterstitial(); navigation.goBack(); }}
       />
 
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
@@ -110,6 +112,8 @@ export default function SIPCalculator({ navigation }) {
             onPress={onCalculate}
             style={{ marginTop: 16 }}
           />
+
+          <AdBanner style={{ marginTop: 18 }} />
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
