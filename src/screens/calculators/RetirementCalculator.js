@@ -8,7 +8,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, CATEGORY, MONO_STYLE } from '../../constants/colors';
 import CalcHeader from '../../components/CalcHeader';
-import SliderField from '../../components/SliderField';
+import InputField from '../../components/InputField';
 import AdBanner from '../../components/AdBanner';
 import ShareableCard from '../../components/ShareableCard';
 import StorageService from '../../services/StorageService';
@@ -75,27 +75,32 @@ function plan({
   };
 }
 
+const num = (s, f = 0) => {
+  const n = parseFloat(s);
+  return Number.isFinite(n) ? n : f;
+};
+
 export default function RetirementCalculator({ navigation }) {
-  const [currentAge,            setCurrentAge]            = useState(30);
-  const [retireAge,             setRetireAge]             = useState(60);
-  const [lifeExpectancy,        setLifeExpectancy]        = useState(85);
-  const [currentMonthlyExpense, setCurrentMonthlyExpense] = useState(40000);
-  const [inflation,             setInflation]             = useState(6);
-  const [preReturn,             setPreReturn]             = useState(12);
-  const [postReturn,            setPostReturn]            = useState(7);
-  const [currentSavings,        setCurrentSavings]        = useState(500000);
+  const [currentAge,            setCurrentAge]            = useState('30');
+  const [retireAge,             setRetireAge]             = useState('60');
+  const [lifeExpectancy,        setLifeExpectancy]        = useState('85');
+  const [currentMonthlyExpense, setCurrentMonthlyExpense] = useState('40000');
+  const [inflation,             setInflation]             = useState('6');
+  const [preReturn,             setPreReturn]             = useState('12');
+  const [postReturn,            setPostReturn]            = useState('7');
+  const [currentSavings,        setCurrentSavings]        = useState('500000');
 
   useEffect(() => {
     StorageService.getCalculatorInputs(CALC_ID).then((s) => {
       if (!s) return;
-      if (s.currentAge            != null) setCurrentAge(Number(s.currentAge));
-      if (s.retireAge             != null) setRetireAge(Number(s.retireAge));
-      if (s.lifeExpectancy        != null) setLifeExpectancy(Number(s.lifeExpectancy));
-      if (s.currentMonthlyExpense != null) setCurrentMonthlyExpense(Number(s.currentMonthlyExpense));
-      if (s.inflation             != null) setInflation(Number(s.inflation));
-      if (s.preReturn             != null) setPreReturn(Number(s.preReturn));
-      if (s.postReturn            != null) setPostReturn(Number(s.postReturn));
-      if (s.currentSavings        != null) setCurrentSavings(Number(s.currentSavings));
+      if (s.currentAge            != null) setCurrentAge(String(s.currentAge));
+      if (s.retireAge             != null) setRetireAge(String(s.retireAge));
+      if (s.lifeExpectancy        != null) setLifeExpectancy(String(s.lifeExpectancy));
+      if (s.currentMonthlyExpense != null) setCurrentMonthlyExpense(String(s.currentMonthlyExpense));
+      if (s.inflation             != null) setInflation(String(s.inflation));
+      if (s.preReturn             != null) setPreReturn(String(s.preReturn));
+      if (s.postReturn            != null) setPostReturn(String(s.postReturn));
+      if (s.currentSavings        != null) setCurrentSavings(String(s.currentSavings));
     });
   }, []);
 
@@ -106,9 +111,20 @@ export default function RetirementCalculator({ navigation }) {
     });
   }, [currentAge, retireAge, lifeExpectancy, currentMonthlyExpense, inflation, preReturn, postReturn, currentSavings]);
 
+  const currentAgeN     = num(currentAge);
+  const retireAgeN      = num(retireAge);
+  const lifeExpectancyN = num(lifeExpectancy);
+  const monthlyExpenseN = num(currentMonthlyExpense);
+
   const res = plan({
-    currentAge, retireAge, lifeExpectancy,
-    currentMonthlyExpense, inflation, preReturn, postReturn, currentSavings,
+    currentAge: currentAgeN,
+    retireAge: retireAgeN,
+    lifeExpectancy: lifeExpectancyN,
+    currentMonthlyExpense: monthlyExpenseN,
+    inflation: num(inflation),
+    preReturn: num(preReturn),
+    postReturn: num(postReturn),
+    currentSavings: num(currentSavings),
   });
 
   const cardRef = useRef(null);
@@ -129,7 +145,7 @@ export default function RetirementCalculator({ navigation }) {
       />
 
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
-        <ScrollView contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>
+        <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
           <LinearGradient colors={COLORS.gradientDark} style={styles.hero}>
             <View style={styles.heroOrb} />
             <TouchableOpacity style={styles.shareBtn} onPress={onShare} activeOpacity={0.8}>
@@ -138,75 +154,84 @@ export default function RetirementCalculator({ navigation }) {
             <Text style={styles.heroLabel}>YOU WILL NEED</Text>
             <Text style={styles.heroValue}>{formatINRFull(res.requiredCorpus)}</Text>
             <Text style={styles.heroHint}>
-              by age {retireAge} to maintain today's lifestyle until age {lifeExpectancy}.
+              by age {retireAgeN} to maintain today's lifestyle until age {lifeExpectancyN}.
             </Text>
             <View style={styles.heroSplit}>
               <HeroStat label="Monthly SIP needed" value={formatINRFull(res.monthlySIP)} />
-              <HeroStat label="Today equivalent" value={formatINR(currentMonthlyExpense * 12)} />
+              <HeroStat label="Today equivalent" value={formatINR(monthlyExpenseN * 12)} />
             </View>
           </LinearGradient>
 
           <View style={styles.statsRow}>
-            <StatCard label="Future monthly expense" value={formatINR(res.futureMonthly)} hint={`at age ${retireAge}`} />
+            <StatCard label="Future monthly expense" value={formatINR(res.futureMonthly)} hint={`at age ${retireAgeN}`} />
             <StatCard label="Existing savings grow to" value={formatINR(res.fvCurrent)} hint={`in ${res.yearsToRetire} yrs`} />
           </View>
 
-          <View style={{ gap: 12, marginTop: 4 }}>
-            <SliderField
+          {(retireAgeN <= currentAgeN || lifeExpectancyN <= retireAgeN) && (
+            <View style={styles.warnBox}>
+              <Ionicons name="alert-circle-outline" size={14} color={COLORS.text} />
+              <Text style={styles.warnText}>
+                Set Current age &lt; Retirement age &lt; Life expectancy for a meaningful plan.
+              </Text>
+            </View>
+          )}
+
+          <View style={styles.card}>
+            <InputField
               label="Current age"
-              value={`${currentAge} yrs`}
-              range="18 – 70"
-              v={currentAge} min={18} max={70} step={1}
-              accent={ACCENT} onChange={(v) => { setCurrentAge(v); if (retireAge <= v) setRetireAge(v + 1); }}
+              value={currentAge}
+              onChangeText={setCurrentAge}
+              suffix="years"
+              placeholder="30"
             />
-            <SliderField
+            <InputField
               label="Retirement age"
-              value={`${retireAge} yrs`}
-              range="40 – 75"
-              v={retireAge} min={Math.max(currentAge + 1, 40)} max={75} step={1}
-              accent={ACCENT} onChange={setRetireAge}
+              value={retireAge}
+              onChangeText={setRetireAge}
+              suffix="years"
+              placeholder="60"
             />
-            <SliderField
+            <InputField
               label="Life expectancy"
-              value={`${lifeExpectancy} yrs`}
-              range="65 – 100"
-              v={lifeExpectancy} min={Math.max(retireAge + 1, 65)} max={100} step={1}
-              accent={ACCENT} onChange={setLifeExpectancy}
+              value={lifeExpectancy}
+              onChangeText={setLifeExpectancy}
+              suffix="years"
+              placeholder="85"
             />
-            <SliderField
+            <InputField
               label="Current monthly expense"
-              value={formatINRFull(currentMonthlyExpense)}
-              range="₹10k – ₹5L"
-              v={currentMonthlyExpense} min={10000} max={500000} step={5000}
-              accent={ACCENT} onChange={setCurrentMonthlyExpense}
+              value={currentMonthlyExpense}
+              onChangeText={setCurrentMonthlyExpense}
+              prefix="₹"
+              placeholder="40000"
             />
-            <SliderField
+            <InputField
               label="Inflation"
-              value={`${inflation.toFixed(1)} %`}
-              range="2% – 12%"
-              v={inflation} min={2} max={12} step={0.5}
-              accent={ACCENT} onChange={setInflation}
+              value={inflation}
+              onChangeText={setInflation}
+              suffix="% p.a."
+              placeholder="6"
             />
-            <SliderField
+            <InputField
               label="Pre-retirement return"
-              value={`${preReturn.toFixed(1)} %`}
-              range="4% – 18%"
-              v={preReturn} min={4} max={18} step={0.5}
-              accent={ACCENT} onChange={setPreReturn}
+              value={preReturn}
+              onChangeText={setPreReturn}
+              suffix="% p.a."
+              placeholder="12"
             />
-            <SliderField
+            <InputField
               label="Post-retirement return"
-              value={`${postReturn.toFixed(1)} %`}
-              range="3% – 12%"
-              v={postReturn} min={3} max={12} step={0.5}
-              accent={ACCENT} onChange={setPostReturn}
+              value={postReturn}
+              onChangeText={setPostReturn}
+              suffix="% p.a."
+              placeholder="7"
             />
-            <SliderField
+            <InputField
               label="Current savings"
-              value={formatINRFull(currentSavings)}
-              range="₹0 – ₹5 Cr"
-              v={currentSavings} min={0} max={50000000} step={50000}
-              accent={ACCENT} onChange={setCurrentSavings}
+              value={currentSavings}
+              onChangeText={setCurrentSavings}
+              prefix="₹"
+              placeholder="500000"
             />
           </View>
 
@@ -220,7 +245,7 @@ export default function RetirementCalculator({ navigation }) {
           ref={cardRef}
           title="RETIREMENT PLAN"
           value={formatINRFull(res.requiredCorpus)}
-          subtitle={`What I need by age ${retireAge} to retire comfortably.`}
+          subtitle={`What I need by age ${retireAgeN} to retire comfortably.`}
           rows={[
             { label: 'Monthly SIP needed', value: formatINRFull(res.monthlySIP) },
             { label: 'Years to retire',    value: `${res.yearsToRetire} yrs` },
@@ -256,6 +281,11 @@ const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: COLORS.background },
   body: { padding: 18, paddingBottom: 40 },
 
+  card: {
+    backgroundColor: COLORS.card, borderRadius: 18, padding: 14,
+    borderWidth: 1, borderColor: COLORS.border, ...COLORS.shadowSoft,
+  },
+
   hero: { borderRadius: 24, padding: 20, marginBottom: 12, overflow: 'hidden' },
   heroOrb: {
     position: 'absolute', right: -40, bottom: -40,
@@ -280,6 +310,13 @@ const styles = StyleSheet.create({
   statLabel: { fontSize: 10.5, color: COLORS.subtext, fontWeight: '700', letterSpacing: 0.3, textTransform: 'uppercase' },
   statValue: { ...MONO_STYLE, fontSize: 16, fontWeight: '700', color: COLORS.text, marginTop: 4 },
   statHint: { fontSize: 10.5, color: COLORS.subtext, marginTop: 2 },
+
+  warnBox: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    backgroundColor: COLORS.card, borderRadius: 12, padding: 10,
+    borderWidth: 1, borderColor: COLORS.border, marginBottom: 4,
+  },
+  warnText: { flex: 1, fontSize: 12, color: COLORS.text, lineHeight: 17 },
 
   shareBtn: {
     position: 'absolute', top: 14, right: 14,

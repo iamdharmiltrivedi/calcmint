@@ -9,6 +9,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../constants/colors';
 import { useApp } from '../context/AppContext';
 import AdBanner from '../components/AdBanner';
+import BrandHeader from '../components/BrandHeader';
 import { calculateGoalSIP } from '../utils/calculations';
 import { formatINR, formatINRFull, formatYears } from '../utils/formatters';
 
@@ -75,8 +76,11 @@ export default function GoalPlannerScreen() {
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
-      {/* Header */}
+      <BrandHeader />
+
+      {/* Page-specific hero */}
       <LinearGradient colors={COLORS.gradient} style={styles.header}>
+        <View style={styles.headerOrb} />
         <View style={styles.headerRow}>
           <View>
             <Text style={styles.headerTitle}>My Financial Goals</Text>
@@ -251,6 +255,13 @@ const styles = StyleSheet.create({
     paddingBottom: 20,
     borderBottomLeftRadius: 22,
     borderBottomRightRadius: 22,
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  headerOrb: {
+    position: 'absolute', right: -50, top: -50,
+    width: 160, height: 160, borderRadius: 80,
+    backgroundColor: 'rgba(201,162,74,0.22)',
   },
   headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   headerTitle: { fontSize: 22, fontWeight: '800', color: '#fff' },

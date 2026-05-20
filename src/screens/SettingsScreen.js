@@ -48,14 +48,14 @@ export default function SettingsScreen({ navigation }) {
           icon="key-outline"
           title="Personal vault"
           subtitle="Encrypted IDs, policies, FDs, SIPs"
-          onPress={() => navigation.navigate('VaultUnlock')}
+          onPress={() => navigation.navigate('MainTabs', { screen: 'Vault' })}
         />
 
         <SectionLabel text="Tools" />
         <Row
           icon="grid-outline"
           title="All calculators"
-          onPress={() => navigation.getParent()?.navigate('Home')}
+          onPress={() => navigation.navigate('MainTabs', { screen: 'Home' })}
         />
         <Row icon="card-outline" title="Subscriptions" onPress={() => navigation.navigate('Subscriptions')} />
         <Row icon="cash-outline" title="Loans & EMI reminders" onPress={() => navigation.navigate('Loans')} />

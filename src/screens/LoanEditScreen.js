@@ -32,7 +32,7 @@ export default function LoanEditScreen({ navigation, route }) {
   const [name, setName] = useState('');
   const [principalStr, setPrincipalStr] = useState('');
   const [rateStr, setRateStr] = useState('');
-  const [tenureStr, setTenureStr] = useState('');
+  const [tenureYearsStr, setTenureYearsStr] = useState('');
   const [startDateStr, setStartDateStr] = useState(toDDMMYYYY(new Date().toISOString()));
   const [emiDayStr, setEmiDayStr] = useState('5');
   const [remindOnDay, setRemindOnDay] = useState(true);
@@ -48,7 +48,8 @@ export default function LoanEditScreen({ navigation, route }) {
       setName(l.name || '');
       setPrincipalStr(l.principal ? String(l.principal) : '');
       setRateStr(l.rate != null ? String(l.rate) : '');
-      setTenureStr(l.tenureMonths ? String(l.tenureMonths) : '');
+      // Stored as months; display as years (supports fractional like 7.5).
+      setTenureYearsStr(l.tenureMonths ? String(l.tenureMonths / 12) : '');
       setStartDateStr(toDDMMYYYY(l.startDate));
       setEmiDayStr(l.emiDay ? String(l.emiDay) : '5');
       setRemindOnDay(l.remindOnDay !== false);
@@ -59,21 +60,22 @@ export default function LoanEditScreen({ navigation, route }) {
   const preview = useMemo(() => {
     const principal = parseFloat(principalStr) || 0;
     const rate = parseFloat(rateStr) || 0;
-    const tenure = parseInt(tenureStr, 10) || 0;
+    const years = parseFloat(tenureYearsStr) || 0;
+    const tenureMonths = Math.round(years * 12);
     const startDate = parseDDMMYYYY(startDateStr)?.toISOString() || new Date().toISOString();
     const emiDay = parseInt(emiDayStr, 10) || 1;
-    return summarizeLoan({ principal, rate, tenureMonths: tenure, startDate, emiDay });
-  }, [principalStr, rateStr, tenureStr, startDateStr, emiDayStr]);
+    return summarizeLoan({ principal, rate, tenureMonths, startDate, emiDay });
+  }, [principalStr, rateStr, tenureYearsStr, startDateStr, emiDayStr]);
 
   const validate = () => {
     if (!name.trim()) return 'Give the loan a name.';
     const p = parseFloat(principalStr);
     const r = parseFloat(rateStr);
-    const t = parseInt(tenureStr, 10);
+    const years = parseFloat(tenureYearsStr);
     const day = parseInt(emiDayStr, 10);
     if (!p || p <= 0) return 'Principal must be greater than zero.';
     if (r == null || isNaN(r) || r < 0 || r > 50) return 'Interest rate must be between 0 and 50%.';
-    if (!t || t < 1 || t > 480) return 'Tenure must be between 1 and 480 months.';
+    if (!years || isNaN(years) || years <= 0 || years > 40) return 'Tenure must be between 0 and 40 years.';
     if (!day || day < 1 || day > 28) return 'EMI day must be between 1 and 28.';
     if (!parseDDMMYYYY(startDateStr)) return 'Start date must be DD/MM/YYYY.';
     return null;
@@ -85,7 +87,8 @@ export default function LoanEditScreen({ navigation, route }) {
 
     const principal = parseFloat(principalStr);
     const rate = parseFloat(rateStr);
-    const tenureMonths = parseInt(tenureStr, 10);
+    const years = parseFloat(tenureYearsStr);
+    const tenureMonths = Math.round(years * 12);
     const emiDay = parseInt(emiDayStr, 10);
     const startDate = parseDDMMYYYY(startDateStr).toISOString();
 
@@ -213,14 +216,19 @@ export default function LoanEditScreen({ navigation, route }) {
               keyboardType="numeric"
             />
           </Field>
-          <Field label="Tenure (months)">
+          <Field label="Tenure (years)">
             <TextInput
               style={styles.input}
-              value={tenureStr}
-              onChangeText={setTenureStr}
-              placeholder="e.g. 240 (20 years)"
+              value={tenureYearsStr}
+              onChangeText={setTenureYearsStr}
+              placeholder="e.g. 20"
               keyboardType="numeric"
             />
+            <Text style={styles.hint}>
+              {tenureYearsStr && !isNaN(parseFloat(tenureYearsStr))
+                ? `= ${Math.round(parseFloat(tenureYearsStr) * 12)} months`
+                : 'Decimal allowed for partial years (e.g. 7.5).'}
+            </Text>
           </Field>
           <Field label="Loan start date (DD/MM/YYYY)">
             <TextInput

@@ -6,12 +6,15 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../constants/colors';
 import { useLock } from '../context/LockContext';
+import { useVaultUnlock } from '../context/VaultUnlockContext';
 import PrimaryButton from '../components/PrimaryButton';
 
 const PIN_LENGTH = 4;
 
-export default function LockSetupScreen({ navigation }) {
+export default function LockSetupScreen({ navigation, route }) {
   const { lockEnabled, autoLockSec, setPin, removeLock } = useLock();
+  const { unlock: unlockVault } = useVaultUnlock();
+  const fromVault = !!route?.params?.fromVault;
   const [step, setStep] = useState('enter'); // enter | confirm
   const [first, setFirst] = useState('');
   const [pin, setPinValue] = useState('');
@@ -19,6 +22,11 @@ export default function LockSetupScreen({ navigation }) {
 
   const press = (d) => { if (pin.length < PIN_LENGTH) setPinValue((p) => p + d); };
   const backspace = () => setPinValue((p) => p.slice(0, -1));
+
+  const leave = () => {
+    if (navigation.canGoBack()) navigation.goBack();
+    else navigation.navigate('MainTabs', { screen: 'Dashboard' });
+  };
 
   const onContinue = () => {
     if (step === 'enter') {
@@ -33,7 +41,16 @@ export default function LockSetupScreen({ navigation }) {
         setPinValue('');
         return;
       }
-      setPin(pin, autoSec).then(() => navigation.goBack());
+      setPin(pin, autoSec).then(() => {
+        if (fromVault) {
+          // User just set a PIN from the Vault entry flow — drop them
+          // straight into the vault without making them re-enter it.
+          unlockVault();
+          navigation.reset({ index: 0, routes: [{ name: 'Vault' }] });
+        } else {
+          leave();
+        }
+      });
     }
   };
 
@@ -43,7 +60,7 @@ export default function LockSetupScreen({ navigation }) {
       'You will not need a PIN to open the app.',
       [
         { text: 'Cancel', style: 'cancel' },
-        { text: 'Disable', style: 'destructive', onPress: () => removeLock().then(() => navigation.goBack()) },
+        { text: 'Disable', style: 'destructive', onPress: () => removeLock().then(leave) },
       ],
     );
   };
@@ -51,7 +68,7 @@ export default function LockSetupScreen({ navigation }) {
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.back}>
+        <TouchableOpacity onPress={leave} style={styles.back}>
           <Ionicons name="arrow-back" size={22} color={COLORS.text} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>App Lock</Text>

@@ -10,6 +10,7 @@ import { COLORS } from '../constants/colors';
 import { EXPENSE_CATEGORIES } from '../constants/categories';
 import DonutChart from '../components/DonutChart';
 import AdBanner from '../components/AdBanner';
+import BrandHeader from '../components/BrandHeader';
 import { useApp } from '../context/AppContext';
 import { formatINR, formatINRFull } from '../utils/formatters';
 
@@ -75,8 +76,11 @@ export default function ExpenseAnalysisScreen() {
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
-      {/* Header */}
+      <BrandHeader />
+
+      {/* Month-summary hero */}
       <LinearGradient colors={COLORS.gradient} style={styles.header}>
+        <View style={styles.headerOrb} />
         <View style={styles.headerRow}>
           <View>
             <Text style={styles.headerTitle}>Expense Tracker</Text>
@@ -89,7 +93,6 @@ export default function ExpenseAnalysisScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* Total spent */}
         <View style={styles.totalBox}>
           <Text style={styles.totalLabel}>Total Spent This Month</Text>
           <Text style={styles.totalAmount}>{formatINRFull(totalThisMonth)}</Text>
@@ -277,6 +280,13 @@ const styles = StyleSheet.create({
     paddingBottom: 20,
     borderBottomLeftRadius: 22,
     borderBottomRightRadius: 22,
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  headerOrb: {
+    position: 'absolute', right: -50, top: -50,
+    width: 160, height: 160, borderRadius: 80,
+    backgroundColor: 'rgba(201,162,74,0.22)',
   },
   headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
   headerTitle: { fontSize: 22, fontWeight: '800', color: '#fff' },

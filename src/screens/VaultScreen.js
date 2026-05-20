@@ -20,6 +20,11 @@ export default function VaultScreen({ navigation }) {
   const [entries, setEntries] = useState([]);
   const [picker, setPicker] = useState(false);
 
+  const leaveVault = useCallback(() => {
+    if (navigation.canGoBack()) navigation.goBack();
+    else navigation.getParent()?.navigate('Dashboard');
+  }, [navigation]);
+
   const load = useCallback(async () => {
     const items = await VaultService.list();
     setEntries(items);
@@ -56,7 +61,7 @@ export default function VaultScreen({ navigation }) {
   return (
     <SafeAreaView style={styles.safe} edges={['top']} onTouchStart={touch}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.iconBtn}>
+        <TouchableOpacity onPress={leaveVault} style={styles.iconBtn}>
           <Ionicons name="arrow-back" size={20} color={COLORS.text} />
         </TouchableOpacity>
         <View style={{ alignItems: 'center', flex: 1 }}>
@@ -66,7 +71,7 @@ export default function VaultScreen({ navigation }) {
             <Text style={styles.unlockedText}>UNLOCKED</Text>
           </View>
         </View>
-        <TouchableOpacity onPress={() => { lock(); navigation.goBack(); }} style={styles.iconBtn}>
+        <TouchableOpacity onPress={() => { lock(); leaveVault(); }} style={styles.iconBtn}>
           <Ionicons name="lock-closed-outline" size={18} color={COLORS.text} />
         </TouchableOpacity>
       </View>

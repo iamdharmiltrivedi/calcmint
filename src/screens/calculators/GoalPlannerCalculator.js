@@ -84,8 +84,11 @@ export default function GoalPlannerCalculator({ navigation }) {
     setSaving(false);
     Alert.alert(
       '🎯 Goal Saved!',
-      `"${inputs.goalName}" has been added to your Goals tab.`,
-      [{ text: 'View Goals', onPress: () => navigation.navigate('Goals') }, { text: 'OK' }],
+      `"${inputs.goalName}" has been added to your goals.`,
+      [
+        { text: 'View Goals', onPress: () => navigation.navigate('Goals') },
+        { text: 'OK' },
+      ],
     );
   };
 

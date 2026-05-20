@@ -34,7 +34,7 @@ export const VAULT_TYPES = {
       { key: 'insurer', label: 'Insurer' },
       { key: 'policyNo', label: 'Policy number', sensitive: true },
       { key: 'premium', label: 'Annual premium', keyboard: 'numeric' },
-      { key: 'expiry', label: 'Expiry (DD/MM/YYYY)' },
+      { key: 'expiry', label: 'Expiry date', type: 'date' },
     ],
   },
   vehicle: {
@@ -47,7 +47,7 @@ export const VAULT_TYPES = {
       { key: 'vehicleNo', label: 'Vehicle number', autoCap: 'characters' },
       { key: 'insurer', label: 'Insurer' },
       { key: 'policyNo', label: 'Policy number', sensitive: true },
-      { key: 'expiry', label: 'Expiry (DD/MM/YYYY)' },
+      { key: 'expiry', label: 'Expiry date', type: 'date' },
     ],
   },
   fd: {
@@ -61,7 +61,7 @@ export const VAULT_TYPES = {
       { key: 'fdNo', label: 'FD receipt number', sensitive: true },
       { key: 'principal', label: 'Principal', keyboard: 'numeric' },
       { key: 'rate', label: 'Interest rate (%)', keyboard: 'numeric' },
-      { key: 'maturity', label: 'Maturity date (DD/MM/YYYY)' },
+      { key: 'maturity', label: 'Maturity date', type: 'date' },
     ],
   },
   sip: {

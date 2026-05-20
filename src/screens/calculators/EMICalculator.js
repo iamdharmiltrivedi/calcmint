@@ -6,7 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { COLORS, CATEGORY, MONO_STYLE } from '../../constants/colors';
 import CalcHeader from '../../components/CalcHeader';
-import SliderField from '../../components/SliderField';
+import InputField from '../../components/InputField';
 import AdBanner from '../../components/AdBanner';
 import StorageService from '../../services/StorageService';
 import AdsService from '../../services/AdsService';
@@ -17,23 +17,28 @@ const CALC_ID = 'emi';
 const ACCENT  = CATEGORY.violet.c;
 const SOFT    = CATEGORY.violet.soft;
 
+const num = (s, f = 0) => {
+  const n = parseFloat(s);
+  return Number.isFinite(n) ? n : f;
+};
+
 export default function EMICalculator({ navigation }) {
-  const [amount, setAmount] = useState(2500000);
-  const [rate,   setRate]   = useState(8.5);
-  const [years,  setYears]  = useState(20);
+  const [amount, setAmount] = useState('2500000');
+  const [rate,   setRate]   = useState('8.5');
+  const [years,  setYears]  = useState('20');
 
   useEffect(() => {
     StorageService.getCalculatorInputs(CALC_ID).then((s) => {
       if (s) {
-        if (s.amount != null) setAmount(Number(s.amount) || 2500000);
-        if (s.rate != null)   setRate(Number(s.rate) || 8.5);
-        if (s.years != null)  setYears(Number(s.years) || 20);
+        if (s.amount != null) setAmount(String(s.amount));
+        if (s.rate   != null) setRate(String(s.rate));
+        if (s.years  != null) setYears(String(s.years));
       }
     });
   }, []);
 
-  const months = years * 12;
-  const res = calculateEMI(amount, rate, months);
+  const months = num(years) * 12;
+  const res = calculateEMI(num(amount), num(rate), months);
 
   useEffect(() => {
     StorageService.saveCalculatorInputs(CALC_ID, { amount, rate, years });
@@ -51,7 +56,7 @@ export default function EMICalculator({ navigation }) {
       />
 
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
-        <ScrollView contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>
+        <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
           {/* Dark hero */}
           <LinearGradient
             colors={COLORS.gradientDark}
@@ -68,27 +73,27 @@ export default function EMICalculator({ navigation }) {
             </View>
           </LinearGradient>
 
-          <View style={{ gap: 12, marginTop: 4 }}>
-            <SliderField
+          <View style={styles.card}>
+            <InputField
               label="Loan Amount"
-              value={formatINRFull(amount)}
-              range="₹1L – ₹2 Cr"
-              v={amount} min={100000} max={20000000} step={50000}
-              accent={ACCENT} onChange={setAmount}
+              value={amount}
+              onChangeText={setAmount}
+              prefix="₹"
+              placeholder="2500000"
             />
-            <SliderField
+            <InputField
               label="Interest Rate"
-              value={`${rate.toFixed(2)} %`}
-              range="1% – 25%"
-              v={rate} min={1} max={25} step={0.25}
-              accent={ACCENT} onChange={setRate}
+              value={rate}
+              onChangeText={setRate}
+              suffix="% p.a."
+              placeholder="8.5"
             />
-            <SliderField
+            <InputField
               label="Tenure"
-              value={`${years} years`}
-              range="1 – 30 yrs"
-              v={years} min={1} max={30} step={1}
-              accent={ACCENT} onChange={setYears}
+              value={years}
+              onChangeText={setYears}
+              suffix="years"
+              placeholder="20"
             />
           </View>
 
@@ -111,6 +116,11 @@ function HeroStat({ label, value }) {
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: COLORS.background },
   body: { padding: 18, paddingBottom: 40 },
+
+  card: {
+    backgroundColor: COLORS.card, borderRadius: 18, padding: 14,
+    borderWidth: 1, borderColor: COLORS.border, ...COLORS.shadowSoft,
+  },
 
   hero: {
     borderRadius: 24, padding: 20, marginBottom: 16, overflow: 'hidden',

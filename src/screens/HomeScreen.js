@@ -1,14 +1,15 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import {
-  View, Text, ScrollView, StyleSheet, TouchableOpacity, StatusBar, TextInput, Image,
+  View, Text, ScrollView, StyleSheet, TouchableOpacity, StatusBar, TextInput,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { COLORS, MONO_STYLE } from '../constants/colors';
+import { COLORS } from '../constants/colors';
 import { CALCULATORS } from '../constants/calculatorData';
 import CalculatorCard from '../components/CalculatorCard';
 import AdBanner from '../components/AdBanner';
+import BrandHeader from '../components/BrandHeader';
 import StorageService from '../services/StorageService';
 
 export default function HomeScreen({ navigation }) {
@@ -37,66 +38,30 @@ export default function HomeScreen({ navigation }) {
     <SafeAreaView style={styles.safe} edges={['top']}>
       <StatusBar barStyle="dark-content" backgroundColor={COLORS.background} />
 
-      {/* Top bar — brand only (no notifications, no profile) */}
-      <View style={styles.topBar}>
-        <View style={styles.brandRow}>
-          <Image
-            source={require('../../assets/icon.png')}
-            style={styles.brandMark}
-            resizeMode="cover"
-          />
-          <View>
-            <Text style={styles.brandName}>CalcMint</Text>
-            <Text style={styles.brandTagline}>Plan · Save · Grow</Text>
+      <BrandHeader />
+
+      {/* Page-specific hero — same family as Expenses / Goals headers */}
+      <LinearGradient colors={COLORS.gradient} style={styles.header}>
+        <View style={styles.headerOrb} />
+        <View style={styles.headerRow}>
+          <View style={{ flex: 1, paddingRight: 12 }}>
+            <Text style={styles.headerTitle}>Smart Money Tools</Text>
+            <Text style={styles.headerSub}>
+              {CALCULATORS.length} calculators · Indian formats · works offline
+            </Text>
+          </View>
+          <View style={styles.offlinePill}>
+            <View style={styles.offlineDot} />
+            <Text style={styles.offlinePillText}>OFFLINE</Text>
           </View>
         </View>
-        <View style={styles.iconBtnRow}>
-          <TouchableOpacity style={styles.iconBtn} activeOpacity={0.7}>
-            <Ionicons name="search" size={17} color={COLORS.text} />
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.iconBtn} activeOpacity={0.7}>
-            <Ionicons name="settings-outline" size={17} color={COLORS.text} />
-          </TouchableOpacity>
-        </View>
-      </View>
+      </LinearGradient>
 
       <ScrollView
         contentContainerStyle={styles.body}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
-        {/* Hero — emerald gradient brand statement (no fake portfolio data) */}
-        <View style={styles.heroWrap}>
-          <LinearGradient
-            colors={COLORS.gradient}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 0.7, y: 1 }}
-            style={styles.hero}
-          >
-            {/* Soft gold orb */}
-            <View style={styles.heroOrb} />
-
-            <View style={styles.offlinePill}>
-              <View style={styles.offlineDot} />
-              <Text style={styles.offlinePillText}>OFFLINE · PRIVATE</Text>
-            </View>
-
-            <Text style={styles.heroTitle}>
-              Smart money tools,{'\n'}
-              <Text style={{ color: COLORS.gold }}>right in your pocket.</Text>
-            </Text>
-            <Text style={styles.heroSub}>
-              12 calculators · Indian formats · works offline.
-            </Text>
-
-            <View style={styles.heroStats}>
-              <MiniStat label="Calculators" value="12" />
-              <MiniStat label="Currency" value="₹ INR" />
-              <MiniStat label="Works" value="Offline" />
-            </View>
-          </LinearGradient>
-        </View>
-
         {/* Continue strip */}
         {lastCalcMeta && (
           <TouchableOpacity
@@ -150,7 +115,6 @@ export default function HomeScreen({ navigation }) {
               <Text style={styles.emptyHint}>Try a different keyword</Text>
             </View>
           ) : (
-            // chunk into rows of 3 so flex:1 in cards still works
             Array.from({ length: Math.ceil(filtered.length / 3) }).map((_, rowIdx) => (
               <View style={styles.row} key={rowIdx}>
                 {filtered.slice(rowIdx * 3, rowIdx * 3 + 3).map((c, colIdx) => (
@@ -161,7 +125,6 @@ export default function HomeScreen({ navigation }) {
                     onPress={() => navigation.navigate(c.screen)}
                   />
                 ))}
-                {/* fill row to 3 cells if last row is short, so widths stay aligned */}
                 {Array.from({
                   length: 3 - filtered.slice(rowIdx * 3, rowIdx * 3 + 3).length,
                 }).map((__, i) => (
@@ -178,80 +141,45 @@ export default function HomeScreen({ navigation }) {
   );
 }
 
-function MiniStat({ label, value }) {
-  return (
-    <View>
-      <Text style={styles.statLabel}>{label}</Text>
-      <Text style={styles.statValue}>{value}</Text>
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: COLORS.background },
 
-  // Top bar
-  topBar: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: 18, paddingTop: 6, paddingBottom: 6,
-  },
-  brandRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  brandMark: { width: 36, height: 36, borderRadius: 11 },
-  brandName: { fontSize: 15, fontWeight: '800', color: COLORS.text, letterSpacing: -0.2 },
-  brandTagline: { fontSize: 10.5, color: COLORS.subtext, fontWeight: '600', marginTop: 1 },
-  iconBtnRow: { flexDirection: 'row', gap: 8 },
-  iconBtn: {
-    width: 38, height: 38, borderRadius: 12, backgroundColor: COLORS.card,
-    borderWidth: 1, borderColor: COLORS.border,
-    justifyContent: 'center', alignItems: 'center',
-  },
+  body: { paddingBottom: 28, paddingTop: 14 },
 
-  body: { paddingBottom: 28 },
+  // Header — same shape as Expenses / Goals for cross-page consistency
+  header: {
+    paddingHorizontal: 18,
+    paddingTop: 14,
+    paddingBottom: 20,
+    borderBottomLeftRadius: 22,
+    borderBottomRightRadius: 22,
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  headerOrb: {
+    position: 'absolute', right: -50, top: -50,
+    width: 160, height: 160, borderRadius: 80,
+    backgroundColor: 'rgba(201,162,74,0.22)',
+  },
+  headerRow: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start',
+  },
+  headerTitle: { fontSize: 22, fontWeight: '800', color: '#fff', letterSpacing: -0.3 },
+  headerSub: { fontSize: 12.5, color: 'rgba(255,255,255,0.78)', marginTop: 4, lineHeight: 18 },
 
-  // Hero
-  heroWrap: { marginHorizontal: 18, marginTop: 10 },
-  hero: {
-    borderRadius: 24, padding: 20, overflow: 'hidden', position: 'relative',
-  },
-  heroOrb: {
-    position: 'absolute', right: -60, top: -60,
-    width: 200, height: 200, borderRadius: 100,
-    backgroundColor: 'rgba(201,162,74,0.30)',
-  },
   offlinePill: {
-    alignSelf: 'flex-start',
     flexDirection: 'row', alignItems: 'center', gap: 5,
-    backgroundColor: 'rgba(201,162,74,0.18)',
+    backgroundColor: 'rgba(201,162,74,0.20)',
     borderWidth: 1, borderColor: 'rgba(201,162,74,0.45)',
     paddingHorizontal: 9, paddingVertical: 4,
     borderRadius: 999,
   },
   offlineDot: { width: 5, height: 5, borderRadius: 3, backgroundColor: COLORS.gold },
   offlinePillText: { fontSize: 9.5, fontWeight: '700', color: COLORS.gold, letterSpacing: 0.8 },
-  heroTitle: {
-    fontSize: 24, fontWeight: '800', color: '#fff',
-    letterSpacing: -0.5, lineHeight: 30, marginTop: 14,
-  },
-  heroSub: {
-    fontSize: 12, color: 'rgba(255,255,255,0.72)', marginTop: 8, lineHeight: 18,
-  },
-  heroStats: {
-    flexDirection: 'row', justifyContent: 'space-between',
-    marginTop: 16, paddingTop: 14,
-    borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.12)',
-  },
-  statLabel: {
-    fontSize: 9.5, color: 'rgba(255,255,255,0.55)', fontWeight: '600',
-    letterSpacing: 0.4, textTransform: 'uppercase',
-  },
-  statValue: {
-    ...MONO_STYLE,
-    fontSize: 14, fontWeight: '700', color: '#fff', marginTop: 3,
-  },
 
   // Continue strip
   continueCard: {
-    marginHorizontal: 18, marginTop: 14,
+    marginHorizontal: 18,
     flexDirection: 'row', alignItems: 'center', gap: 12,
     backgroundColor: COLORS.card, borderRadius: 16, padding: 12,
     borderWidth: 1, borderColor: COLORS.border,

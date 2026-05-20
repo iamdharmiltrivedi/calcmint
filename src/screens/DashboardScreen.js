@@ -10,6 +10,7 @@ import StorageService from '../services/StorageService';
 import { formatINR, formatINRFull } from '../utils/formatters';
 import { summarizeLoan, totalMonthlyObligation } from '../utils/loans';
 import { useApp } from '../context/AppContext';
+import BrandHeader from '../components/BrandHeader';
 
 const inMonth = (iso, monthOffset = 0) => {
   const now = new Date();
@@ -99,23 +100,21 @@ export default function DashboardScreen({ navigation }) {
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
+      <BrandHeader
+        rightActions={[
+          { icon: 'settings-outline', label: 'Settings', onPress: () => navigation.navigate('Settings') },
+        ]}
+      />
       <ScrollView
         contentContainerStyle={styles.body}
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} />}
       >
-        <View style={styles.head}>
-          <View>
-            <Text style={styles.heyHi}>Hi there</Text>
-            <Text style={styles.greeting}>{greeting()}</Text>
-          </View>
-          <TouchableOpacity style={styles.iconBtn} onPress={() => navigation.navigate('Settings')}>
-            <Ionicons name="settings-outline" size={18} color={COLORS.text} />
-          </TouchableOpacity>
-        </View>
+        <Text style={styles.greeting}>{greeting()}</Text>
 
         {/* This-month hero */}
         <LinearGradient colors={COLORS.gradient} style={styles.hero}>
+          <View style={styles.heroOrb} />
           <Text style={styles.heroLabel}>SPENT THIS MONTH</Text>
           <Text style={styles.heroValue}>{formatINRFull(monthSpend)}</Text>
           {delta !== null && (
@@ -208,7 +207,7 @@ export default function DashboardScreen({ navigation }) {
 
         {/* Goal progress */}
         {goalProgress && (
-          <Section title="Goal progress" onMore={() => navigation.getParent()?.navigate('Goals')}>
+          <Section title="Goal progress" onMore={() => navigation.navigate('Goals')}>
             <View style={styles.goalSummary}>
               <View style={{ flex: 1 }}>
                 <Text style={styles.goalLabel}>Saved across {goalProgress.count} goal{goalProgress.count > 1 ? 's' : ''}</Text>
@@ -289,16 +288,14 @@ const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: COLORS.background },
   body: { padding: 18, paddingBottom: 40 },
 
-  head: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 },
-  heyHi: { fontSize: 12, color: COLORS.subtext, fontWeight: '600' },
-  greeting: { fontSize: 22, fontWeight: '800', color: COLORS.text, letterSpacing: -0.3 },
-  iconBtn: {
-    width: 38, height: 38, borderRadius: 12,
-    backgroundColor: COLORS.card, borderWidth: 1, borderColor: COLORS.border,
-    alignItems: 'center', justifyContent: 'center',
-  },
+  greeting: { fontSize: 22, fontWeight: '800', color: COLORS.text, letterSpacing: -0.3, marginBottom: 14 },
 
-  hero: { borderRadius: 24, padding: 20, overflow: 'hidden' },
+  hero: { borderRadius: 24, padding: 20, overflow: 'hidden', position: 'relative' },
+  heroOrb: {
+    position: 'absolute', right: -50, top: -50,
+    width: 160, height: 160, borderRadius: 80,
+    backgroundColor: 'rgba(201,162,74,0.22)',
+  },
   heroLabel: { fontSize: 10.5, fontWeight: '700', letterSpacing: 1.4, color: 'rgba(255,255,255,0.6)' },
   heroValue: { ...MONO_STYLE, fontSize: 34, fontWeight: '700', color: '#fff', marginTop: 6, letterSpacing: -1 },
   deltaPill: {

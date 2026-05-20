@@ -5,7 +5,6 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../constants/colors';
-import { useLock } from '../context/LockContext';
 
 // Tab screens
 import DashboardScreen from '../screens/DashboardScreen';
@@ -33,7 +32,6 @@ import SplitGroupsScreen from '../screens/SplitGroupsScreen';
 import SplitGroupDetailScreen from '../screens/SplitGroupDetailScreen';
 import SettingsScreen from '../screens/SettingsScreen';
 import LockSetupScreen from '../screens/LockSetupScreen';
-import LockScreen from '../screens/LockScreen';
 import BackupScreen from '../screens/BackupScreen';
 import ReceiptsScreen from '../screens/ReceiptsScreen';
 import ReceiptDetailScreen from '../screens/ReceiptDetailScreen';
@@ -46,7 +44,12 @@ import LoanEditScreen from '../screens/LoanEditScreen';
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
 
-const stackOptions = { headerShown: false, contentStyle: { backgroundColor: COLORS.background } };
+const stackOptions = {
+  headerShown: false,
+  contentStyle: { backgroundColor: COLORS.background },
+  animation: 'slide_from_right',
+  animationDuration: 220,
+};
 
 // Home (calculators) stack
 const HomeStack = () => (
@@ -67,41 +70,30 @@ const HomeStack = () => (
   </Stack.Navigator>
 );
 
-// Dashboard stack hosts dashboard-launched flows
+// Dashboard tab only owns the dashboard screen — shared flows
+// (Settings, Loans, Receipts, etc.) live in the root stack so
+// each name is registered exactly once.
 const DashboardStack = () => (
   <Stack.Navigator screenOptions={stackOptions}>
     <Stack.Screen name="DashboardScreen" component={DashboardScreen} />
-    <Stack.Screen name="Settings" component={SettingsScreen} />
-    <Stack.Screen name="LockSetup" component={LockSetupScreen} />
-    <Stack.Screen name="Backup" component={BackupScreen} />
-    <Stack.Screen name="Subscriptions" component={SubscriptionsScreen} />
-    <Stack.Screen name="SplitGroups" component={SplitGroupsScreen} />
-    <Stack.Screen name="SplitGroupDetail" component={SplitGroupDetailScreen} />
-    <Stack.Screen name="Receipts" component={ReceiptsScreen} />
-    <Stack.Screen name="ReceiptDetail" component={ReceiptDetailScreen} />
-    <Stack.Screen name="VaultUnlock" component={VaultUnlockScreen} options={{ presentation: 'modal' }} />
-    <Stack.Screen name="Vault" component={VaultScreen} />
-    <Stack.Screen name="VaultEntryEdit" component={VaultEntryEditScreen} />
-    <Stack.Screen name="Loans" component={LoansScreen} />
-    <Stack.Screen name="LoanEdit" component={LoanEditScreen} />
   </Stack.Navigator>
 );
 
+// Vault tab — Vault screen redirects to VaultUnlock when locked,
+// so we keep Vault as the initial route. That way re-tapping the
+// tab doesn't pop the user back to the unlock screen unnecessarily.
+const VaultStack = () => (
+  <Stack.Navigator screenOptions={stackOptions} initialRouteName="Vault">
+    <Stack.Screen name="Vault" component={VaultScreen} />
+    <Stack.Screen name="VaultUnlock" component={VaultUnlockScreen} options={{ animation: 'fade' }} />
+    <Stack.Screen name="VaultEntryEdit" component={VaultEntryEditScreen} />
+  </Stack.Navigator>
+);
+
+// More tab only owns its landing screen — shared flows live at root.
 const MoreStack = () => (
   <Stack.Navigator screenOptions={stackOptions}>
     <Stack.Screen name="MoreHome" component={SettingsScreen} />
-    <Stack.Screen name="Subscriptions" component={SubscriptionsScreen} />
-    <Stack.Screen name="SplitGroups" component={SplitGroupsScreen} />
-    <Stack.Screen name="SplitGroupDetail" component={SplitGroupDetailScreen} />
-    <Stack.Screen name="Receipts" component={ReceiptsScreen} />
-    <Stack.Screen name="ReceiptDetail" component={ReceiptDetailScreen} />
-    <Stack.Screen name="LockSetup" component={LockSetupScreen} />
-    <Stack.Screen name="Backup" component={BackupScreen} />
-    <Stack.Screen name="VaultUnlock" component={VaultUnlockScreen} options={{ presentation: 'modal' }} />
-    <Stack.Screen name="Vault" component={VaultScreen} />
-    <Stack.Screen name="VaultEntryEdit" component={VaultEntryEditScreen} />
-    <Stack.Screen name="Loans" component={LoansScreen} />
-    <Stack.Screen name="LoanEdit" component={LoanEditScreen} />
   </Stack.Navigator>
 );
 
@@ -109,14 +101,16 @@ const TAB_ICONS = {
   Dashboard: { active: 'grid',          inactive: 'grid-outline' },
   Home:      { active: 'calculator',    inactive: 'calculator-outline' },
   Expenses:  { active: 'wallet',        inactive: 'wallet-outline' },
-  Goals:     { active: 'flag',          inactive: 'flag-outline' },
+  Vault:     { active: 'lock-closed',   inactive: 'lock-closed-outline' },
   More:      { active: 'ellipsis-horizontal-circle', inactive: 'ellipsis-horizontal-circle-outline' },
 };
 
 const MainTabs = () => (
   <Tab.Navigator
+    sceneContainerStyle={{ backgroundColor: COLORS.background }}
     screenOptions={({ route }) => ({
       headerShown: false,
+      tabBarHideOnKeyboard: true,
       tabBarIcon: ({ color, size, focused }) => {
         const icons = TAB_ICONS[route.name];
         return (
@@ -143,19 +137,35 @@ const MainTabs = () => (
     <Tab.Screen name="Dashboard" component={DashboardStack} />
     <Tab.Screen name="Home"      component={HomeStack}      options={{ title: 'Tools' }} />
     <Tab.Screen name="Expenses"  component={ExpenseAnalysisScreen} />
-    <Tab.Screen name="Goals"     component={GoalPlannerScreen} />
+    <Tab.Screen name="Vault"     component={VaultStack} />
     <Tab.Screen name="More"      component={MoreStack} />
   </Tab.Navigator>
 );
 
-const AppNavigator = () => {
-  const { lockEnabled, isUnlocked, hydrated } = useLock();
-  if (!hydrated) return null;
-  return (
-    <NavigationContainer>
-      {lockEnabled && !isUnlocked ? <LockScreen /> : <MainTabs />}
-    </NavigationContainer>
-  );
-};
+// Root stack hosts the tab navigator plus all screens that need to be
+// reachable from more than one tab. Registering each name once here
+// avoids React Navigation's duplicate-name warning.
+const RootStack = () => (
+  <Stack.Navigator screenOptions={stackOptions}>
+    <Stack.Screen name="MainTabs" component={MainTabs} />
+    <Stack.Screen name="Settings" component={SettingsScreen} />
+    <Stack.Screen name="LockSetup" component={LockSetupScreen} />
+    <Stack.Screen name="Backup" component={BackupScreen} />
+    <Stack.Screen name="Subscriptions" component={SubscriptionsScreen} />
+    <Stack.Screen name="SplitGroups" component={SplitGroupsScreen} />
+    <Stack.Screen name="SplitGroupDetail" component={SplitGroupDetailScreen} />
+    <Stack.Screen name="Receipts" component={ReceiptsScreen} />
+    <Stack.Screen name="ReceiptDetail" component={ReceiptDetailScreen} />
+    <Stack.Screen name="Goals" component={GoalPlannerScreen} />
+    <Stack.Screen name="Loans" component={LoansScreen} />
+    <Stack.Screen name="LoanEdit" component={LoanEditScreen} />
+  </Stack.Navigator>
+);
+
+const AppNavigator = () => (
+  <NavigationContainer>
+    <RootStack />
+  </NavigationContainer>
+);
 
 export default AppNavigator;

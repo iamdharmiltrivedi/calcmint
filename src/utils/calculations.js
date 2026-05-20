@@ -1,16 +1,23 @@
 // ─── EMI ──────────────────────────────────────────────────────────────────────
 // Formula: EMI = P × r × (1+r)^n / ((1+r)^n - 1)
 // P = principal, r = monthly rate, n = months
+// Safely returns zeros for invalid or empty inputs (e.g. while the user is typing).
 export const calculateEMI = (principal, annualRate, months) => {
-  const r = annualRate / 12 / 100;
-  if (r === 0) {
-    const emi = principal / months;
-    return { emi, totalAmount: principal, totalInterest: 0 };
+  const P = Number(principal) || 0;
+  const annual = Number(annualRate);
+  const n = Number(months) || 0;
+  if (P <= 0 || n <= 0 || isNaN(annual)) {
+    return { emi: 0, totalAmount: 0, totalInterest: 0 };
   }
-  const power = Math.pow(1 + r, months);
-  const emi = (principal * r * power) / (power - 1);
-  const totalAmount = emi * months;
-  const totalInterest = totalAmount - principal;
+  const r = annual / 12 / 100;
+  if (r === 0) {
+    const emi = P / n;
+    return { emi, totalAmount: P, totalInterest: 0 };
+  }
+  const power = Math.pow(1 + r, n);
+  const emi = (P * r * power) / (power - 1);
+  const totalAmount = emi * n;
+  const totalInterest = totalAmount - P;
   return { emi, totalAmount, totalInterest };
 };
 

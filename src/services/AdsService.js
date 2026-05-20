@@ -1,16 +1,41 @@
-import mobileAds, {
-  InterstitialAd,
-  AdEventType,
-  TestIds,
-  BannerAdSize,
-} from 'react-native-google-mobile-ads';
+import { TurboModuleRegistry } from 'react-native';
+import { ADMOB } from '../constants/adsConfig';
 
-const REAL_BANNER_ID = 'ca-app-pub-7447692286150378/7573198836';
-const REAL_INTERSTITIAL_ID = 'ca-app-pub-7447692286150378/2480425349';
+// react-native-google-mobile-ads requires its native module to be linked into
+// the binary. In Expo Go that module is missing and the library's eager imports
+// crash the app at startup. We detect availability via the TurboModule registry
+// and only require the JS package when the native side is actually present.
+const adsAvailable = !!TurboModuleRegistry.get('RNGoogleMobileAdsModule');
 
-export const BANNER_AD_UNIT_ID = __DEV__ ? TestIds.BANNER : REAL_BANNER_ID;
-export const INTERSTITIAL_AD_UNIT_ID = __DEV__ ? TestIds.INTERSTITIAL : REAL_INTERSTITIAL_ID;
-export { BannerAdSize };
+let mobileAds = null;
+let InterstitialAd = null;
+let AdEventType = null;
+let TestIds = null;
+let _BannerAdSize = null;
+
+if (adsAvailable) {
+  try {
+    // eslint-disable-next-line global-require
+    const ads = require('react-native-google-mobile-ads');
+    mobileAds = ads.default;
+    InterstitialAd = ads.InterstitialAd;
+    AdEventType = ads.AdEventType;
+    TestIds = ads.TestIds;
+    _BannerAdSize = ads.BannerAdSize;
+  } catch (_) {
+    // Treat any load error as "ads not available".
+  }
+}
+
+export const BANNER_AD_UNIT_ID = adsAvailable && TestIds
+  ? (__DEV__ ? TestIds.BANNER : ADMOB.bannerUnitId)
+  : null;
+export const INTERSTITIAL_AD_UNIT_ID = adsAvailable && TestIds
+  ? (__DEV__ ? TestIds.INTERSTITIAL : ADMOB.interstitialUnitId)
+  : null;
+export const ADMOB_PUBLISHER_ID = ADMOB.publisherId;
+export const BannerAdSize = _BannerAdSize;
+export const isAdsAvailable = () => adsAvailable;
 
 const INTERSTITIAL_MIN_INTERVAL_MS = 3 * 60 * 1000;
 
@@ -42,6 +67,7 @@ function buildInterstitial() {
 
 const AdsService = {
   async initialize() {
+    if (!adsAvailable || !mobileAds) return;
     if (initialized) return;
     try {
       await mobileAds().initialize();
@@ -49,13 +75,13 @@ const AdsService = {
       interstitial.load();
       initialized = true;
     } catch (_) {
-      // SDK not linked (e.g., Expo Go) — fail silently so the app still runs
+      // SDK not linked or runtime error — fail silently so the app still runs.
       initialized = false;
     }
   },
 
   maybeShowInterstitial() {
-    if (!initialized || !interstitial || !interstitialLoaded) return false;
+    if (!adsAvailable || !initialized || !interstitial || !interstitialLoaded) return false;
     if (Date.now() - lastShownAt < INTERSTITIAL_MIN_INTERVAL_MS) return false;
     try {
       interstitial.show();

@@ -1,16 +1,26 @@
 import * as SecureStore from 'expo-secure-store';
+import * as Crypto from 'expo-crypto';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import CryptoJS from 'crypto-js';
 
 const KEY_NAME = 'calcmint_vault_key_v1';
 const ENTRIES_STORE = '@fc_vault_entries_v1';
 
+// CryptoJS's built-in WordArray.random falls back to Math.random in React Native
+// because window.crypto.getRandomValues is unavailable, which throws
+// "Native crypto module could not be used to get secure random number".
+// Bridge to expo-crypto for real entropy.
+function randomHex(byteLen) {
+  const bytes = Crypto.getRandomBytes(byteLen);
+  let hex = '';
+  for (let i = 0; i < bytes.length; i++) hex += bytes[i].toString(16).padStart(2, '0');
+  return hex;
+}
+
 async function getOrCreateKey() {
   let key = await SecureStore.getItemAsync(KEY_NAME);
   if (!key) {
-    // 256-bit random key, hex-encoded
-    const random = CryptoJS.lib.WordArray.random(32);
-    key = random.toString(CryptoJS.enc.Hex);
+    key = randomHex(32); // 256-bit
     await SecureStore.setItemAsync(KEY_NAME, key, {
       keychainAccessible: SecureStore.AFTER_FIRST_UNLOCK,
     });
@@ -20,7 +30,7 @@ async function getOrCreateKey() {
 
 function encryptString(plain, hexKey) {
   const keyBytes = CryptoJS.enc.Hex.parse(hexKey);
-  const iv = CryptoJS.lib.WordArray.random(16);
+  const iv = CryptoJS.enc.Hex.parse(randomHex(16));
   const enc = CryptoJS.AES.encrypt(plain, keyBytes, { iv });
   return iv.toString(CryptoJS.enc.Hex) + ':' + enc.toString();
 }

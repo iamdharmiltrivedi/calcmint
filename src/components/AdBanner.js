@@ -1,11 +1,25 @@
 import React, { useState } from 'react';
-import { View, StyleSheet } from 'react-native';
-import { BannerAd, BannerAdSize } from 'react-native-google-mobile-ads';
-import { BANNER_AD_UNIT_ID } from '../services/AdsService';
+import { View, StyleSheet, TurboModuleRegistry } from 'react-native';
+import { BANNER_AD_UNIT_ID, isAdsAvailable } from '../services/AdsService';
+
+// Only require the native package when its module is registered. In Expo Go
+// it's missing — without this guard, the eager import crashes the whole app.
+let BannerAd = null;
+let BannerAdSize = null;
+if (TurboModuleRegistry.get('RNGoogleMobileAdsModule')) {
+  try {
+    // eslint-disable-next-line global-require
+    const ads = require('react-native-google-mobile-ads');
+    BannerAd = ads.BannerAd;
+    BannerAdSize = ads.BannerAdSize;
+  } catch (_) { /* ads silently disabled */ }
+}
 
 export default function AdBanner({ style }) {
   const [failed, setFailed] = useState(false);
-  if (failed) return null;
+  if (!isAdsAvailable() || !BannerAd || !BannerAdSize || !BANNER_AD_UNIT_ID || failed) {
+    return null;
+  }
 
   return (
     <View style={[styles.wrap, style]}>

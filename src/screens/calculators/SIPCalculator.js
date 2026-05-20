@@ -6,7 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, CATEGORY, MONO_STYLE } from '../../constants/colors';
 import CalcHeader from '../../components/CalcHeader';
-import SliderField from '../../components/SliderField';
+import InputField from '../../components/InputField';
 import PrimaryButton from '../../components/PrimaryButton';
 import AdBanner from '../../components/AdBanner';
 import StorageService from '../../services/StorageService';
@@ -18,25 +18,38 @@ const CALC_ID = 'sip';
 const ACCENT  = CATEGORY.green.c;
 const SOFT    = CATEGORY.green.soft;
 
+const num = (s, f = 0) => {
+  const n = parseFloat(s);
+  return Number.isFinite(n) ? n : f;
+};
+
 export default function SIPCalculator({ navigation }) {
-  const [monthly, setMonthly] = useState(15000);
-  const [rate,    setRate]    = useState(12);
-  const [years,   setYears]   = useState(15);
+  const [monthly, setMonthly] = useState('15000');
+  const [rate,    setRate]    = useState('12');
+  const [years,   setYears]   = useState('15');
 
   useEffect(() => {
     StorageService.getCalculatorInputs(CALC_ID).then((s) => {
       if (s) {
-        if (s.monthly != null) setMonthly(Number(s.monthly) || 15000);
-        if (s.rate != null)    setRate(Number(s.rate) || 12);
-        if (s.years != null)   setYears(Number(s.years) || 15);
+        if (s.monthly != null) setMonthly(String(s.monthly));
+        if (s.rate    != null) setRate(String(s.rate));
+        if (s.years   != null) setYears(String(s.years));
       }
     });
   }, []);
 
-  const result = calculateSIP(monthly, rate, years);
-  const invested = monthly * 12 * years;
+  useEffect(() => {
+    StorageService.saveCalculatorInputs(CALC_ID, { monthly, rate, years });
+  }, [monthly, rate, years]);
+
+  const mVal = num(monthly);
+  const rVal = num(rate);
+  const yVal = num(years);
+
+  const result = calculateSIP(mVal, rVal, yVal);
+  const invested = mVal * 12 * yVal;
   const returns = result.futureValue - invested;
-  const wealthRatio = (result.futureValue / invested).toFixed(2);
+  const wealthRatio = invested > 0 ? (result.futureValue / invested).toFixed(2) : '0.00';
 
   const onCalculate = () => {
     StorageService.saveCalculatorInputs(CALC_ID, { monthly, rate, years });
@@ -54,28 +67,28 @@ export default function SIPCalculator({ navigation }) {
       />
 
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
-        <ScrollView contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>
-          <View style={{ gap: 12 }}>
-            <SliderField
+        <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+          <View style={styles.card}>
+            <InputField
               label="Monthly Investment"
-              value={formatINRFull(monthly)}
-              range="₹500 – ₹1L"
-              v={monthly} min={500} max={100000} step={500}
-              accent={ACCENT} onChange={setMonthly}
+              value={monthly}
+              onChangeText={setMonthly}
+              prefix="₹"
+              placeholder="15000"
             />
-            <SliderField
+            <InputField
               label="Expected Return"
-              value={`${rate.toFixed(1)} %`}
-              range="1% – 30%"
-              v={rate} min={1} max={30} step={0.5}
-              accent={ACCENT} onChange={setRate}
+              value={rate}
+              onChangeText={setRate}
+              suffix="% p.a."
+              placeholder="12"
             />
-            <SliderField
+            <InputField
               label="Duration"
-              value={`${years} years`}
-              range="1 – 40 yrs"
-              v={years} min={1} max={40} step={1}
-              accent={ACCENT} onChange={setYears}
+              value={years}
+              onChangeText={setYears}
+              suffix="years"
+              placeholder="15"
             />
           </View>
 
@@ -101,7 +114,7 @@ export default function SIPCalculator({ navigation }) {
             <View style={[styles.ratioPill, { backgroundColor: SOFT }]}>
               <Ionicons name="trending-up" size={12} color={ACCENT} />
               <Text style={[styles.ratioText, { color: ACCENT }]}>
-                {wealthRatio}× wealth ratio over {years} yrs
+                {wealthRatio}× wealth ratio over {yVal} yrs
               </Text>
             </View>
           </View>
@@ -132,6 +145,11 @@ function SmallStat({ label, value, color = COLORS.text }) {
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: COLORS.background },
   body: { padding: 18, paddingBottom: 40 },
+
+  card: {
+    backgroundColor: COLORS.card, borderRadius: 18, padding: 14,
+    borderWidth: 1, borderColor: COLORS.border, ...COLORS.shadowSoft,
+  },
 
   previewCard: {
     backgroundColor: COLORS.card,

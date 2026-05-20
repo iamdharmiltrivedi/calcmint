@@ -14,25 +14,37 @@ const PIN_LENGTH = 4;
 
 export default function VaultUnlockScreen({ navigation }) {
   const { lockEnabled, tryUnlock } = useLock();
-  const { unlock } = useVaultUnlock();
+  const { unlocked, unlock } = useVaultUnlock();
   const [pin, setPin] = useState('');
   const [error, setError] = useState(false);
   const [bio, setBio] = useState({ available: false, label: 'Biometric' });
   const [showingBio, setShowingBio] = useState(false);
 
-  // If app lock isn't configured, vault still needs a PIN. Send user to setup.
+  const exitToDashboard = useCallback(() => {
+    if (navigation.canGoBack()) navigation.goBack();
+    else navigation.getParent()?.navigate('Dashboard');
+  }, [navigation]);
+
+  // Navigate to Vault only after the unlock state has actually flipped,
+  // otherwise VaultScreen's guard would still see unlocked=false and bounce back.
+  useEffect(() => {
+    if (unlocked) navigation.replace('Vault');
+  }, [unlocked, navigation]);
+
+  // If a vault PIN isn't configured yet, walk the user through setup.
+  // Push (don't replace) so goBack from LockSetup returns here for unlock.
   useEffect(() => {
     if (!lockEnabled) {
       Alert.alert(
         'Vault needs a PIN',
-        'Set up app lock first to protect your vault. You can also enable biometric there.',
+        'Set up a PIN to protect your vault. You can also enable biometric unlock.',
         [
-          { text: 'Cancel', style: 'cancel', onPress: () => navigation.goBack() },
-          { text: 'Set up', onPress: () => navigation.replace('LockSetup') },
+          { text: 'Cancel', style: 'cancel', onPress: exitToDashboard },
+          { text: 'Set up', onPress: () => navigation.navigate('LockSetup', { fromVault: true }) },
         ],
       );
     }
-  }, [lockEnabled, navigation]);
+  }, [lockEnabled, navigation, exitToDashboard]);
 
   // Probe biometric capability and offer it
   useEffect(() => {
@@ -49,11 +61,8 @@ export default function VaultUnlockScreen({ navigation }) {
     setShowingBio(true);
     const res = await BiometricService.authenticate('Unlock CalcMint Vault');
     setShowingBio(false);
-    if (res.success) {
-      unlock();
-      navigation.replace('Vault');
-    }
-  }, [bio, unlock, navigation, showingBio]);
+    if (res.success) unlock();
+  }, [bio, unlock, showingBio]);
 
   // Auto-prompt biometric on first mount (don't loop on dismiss)
   useEffect(() => {
@@ -67,14 +76,13 @@ export default function VaultUnlockScreen({ navigation }) {
       const ok = tryUnlock(pin);
       if (ok) {
         unlock();
-        navigation.replace('Vault');
       } else {
         setError(true);
         Vibration.vibrate(150);
         setTimeout(() => { setPin(''); setError(false); }, 600);
       }
     }
-  }, [pin, tryUnlock, unlock, navigation]);
+  }, [pin, tryUnlock, unlock]);
 
   const press = (d) => { if (pin.length < PIN_LENGTH) setPin((p) => p + d); };
   const backspace = () => setPin((p) => p.slice(0, -1));
@@ -84,7 +92,7 @@ export default function VaultUnlockScreen({ navigation }) {
       <StatusBar barStyle="light-content" />
       <LinearGradient colors={COLORS.gradient} style={StyleSheet.absoluteFill} />
 
-      <TouchableOpacity style={styles.closeBtn} onPress={() => navigation.goBack()} hitSlop={10}>
+      <TouchableOpacity style={styles.closeBtn} onPress={exitToDashboard} hitSlop={10}>
         <Ionicons name="close" size={22} color="#fff" />
       </TouchableOpacity>
 
