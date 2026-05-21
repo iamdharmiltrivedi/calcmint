@@ -1,14 +1,13 @@
 import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, ScrollView, Image, Alert,
-  ActionSheetIOS, Platform, ActivityIndicator,
+  ActionSheetIOS, Platform, ActivityIndicator, Modal, TextInput,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, MONO_STYLE } from '../constants/colors';
 import StorageService from '../services/StorageService';
 import ReceiptService from '../services/ReceiptService';
-import NotificationService from '../services/NotificationService';
 import OcrService from '../services/OcrService';
 import { DOC_KINDS, DOC_KIND_LIST, suggestKind } from '../constants/documentKinds';
 import { parseReceipt } from '../utils/receiptParser';
@@ -22,26 +21,47 @@ const daysUntil = (iso) => {
   return Math.round((d - t) / 86400000);
 };
 
+const ROOT = '__root__';     // top-level "All folders" view
+const UNFILED = '__unfiled__'; // pseudo-folder for docs with no folderId
+
 export default function ReceiptsScreen({ navigation }) {
+  const insets = useSafeAreaInsets();
   const [items, setItems] = useState([]);
+  const [folders, setFolders] = useState([]);
   const [busy, setBusy] = useState(false);
   const [busyLabel, setBusyLabel] = useState('');
   const [filter, setFilter] = useState('all'); // 'all' | kind key
+  const [view, setView] = useState(ROOT); // ROOT | folderId | UNFILED
+  const [newFolderOpen, setNewFolderOpen] = useState(false);
+  const [newFolderName, setNewFolderName] = useState('');
 
-  useEffect(() => { StorageService.getReceipts().then(setItems); }, []);
+  useEffect(() => {
+    Promise.all([StorageService.getReceipts(), StorageService.getDocFolders()])
+      .then(([recs, fs]) => { setItems(recs); setFolders(fs); });
+  }, []);
 
-  // Refresh whenever this screen comes back into focus (covers edits in detail screen)
   useEffect(() => {
     const focus = navigation.addListener('focus', () => {
-      StorageService.getReceipts().then(setItems);
+      Promise.all([StorageService.getReceipts(), StorageService.getDocFolders()])
+        .then(([recs, fs]) => { setItems(recs); setFolders(fs); });
     });
     return focus;
   }, [navigation]);
 
-  const persist = useCallback(async (next) => {
+  const persistItems = useCallback(async (next) => {
     setItems(next);
     await StorageService.saveReceipts(next);
   }, []);
+
+  const persistFolders = useCallback(async (next) => {
+    setFolders(next);
+    await StorageService.saveDocFolders(next);
+  }, []);
+
+  const currentFolder = useMemo(
+    () => (view === ROOT || view === UNFILED ? null : folders.find((f) => f.id === view)),
+    [view, folders],
+  );
 
   const onAdd = async (source) => {
     setBusy(true);
@@ -57,7 +77,6 @@ export default function ReceiptsScreen({ navigation }) {
       setBusyLabel('Saving image…');
       const stored = await ReceiptService.saveImage(uri, id);
 
-      // Best-effort OCR + parse. Silent on failure.
       let extracted = null;
       let ocrText = '';
       if (OcrService.isAvailable()) {
@@ -70,6 +89,8 @@ export default function ReceiptsScreen({ navigation }) {
       const suggestedKind = ocrText
         ? suggestKind(((extracted?.vendor || '') + ' ' + ocrText).slice(0, 2000))
         : null;
+      // New docs added from inside a folder get assigned to that folder.
+      const folderId = view === ROOT || view === UNFILED ? null : view;
       const draft = {
         id,
         imageUri: stored,
@@ -81,12 +102,13 @@ export default function ReceiptsScreen({ navigation }) {
         date: extracted?.date || today.toISOString(),
         warrantyMonths: 0,
         warrantyReminderId: null,
+        folderId,
         ocrText: ocrText || undefined,
         ocrAt: ocrText ? today.toISOString() : undefined,
         createdAt: today.toISOString(),
       };
       const next = [draft, ...items];
-      await persist(next);
+      await persistItems(next);
       navigation.navigate('ReceiptDetail', { id });
     } catch (e) {
       Alert.alert('Could not add document', e.message);
@@ -125,47 +147,159 @@ export default function ReceiptsScreen({ navigation }) {
     }
   };
 
+  // ── Folder ops ────────────────────────────────────────────────────────────
+  const createFolder = async () => {
+    const name = newFolderName.trim();
+    if (!name) return;
+    const f = { id: Date.now().toString(), name, createdAt: new Date().toISOString() };
+    await persistFolders([f, ...folders]);
+    setNewFolderName('');
+    setNewFolderOpen(false);
+    setView(f.id);
+  };
+
+  const deleteFolder = (id) =>
+    Alert.alert(
+      'Delete folder?',
+      'Documents inside this folder will move back to Uncategorized.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            await persistFolders(folders.filter((f) => f.id !== id));
+            await persistItems(items.map((r) => (r.folderId === id ? { ...r, folderId: null } : r)));
+            if (view === id) setView(ROOT);
+          },
+        },
+      ],
+    );
+
+  // ── Counts ────────────────────────────────────────────────────────────────
+  const folderCount = useCallback(
+    (fid) => items.filter((r) => r.folderId === fid).length,
+    [items],
+  );
+  const unfiledCount = useMemo(
+    () => items.filter((r) => !r.folderId).length,
+    [items],
+  );
+
+  // ── Items visible in current scope (folder | unfiled) ────────────────────
+  const scopedItems = useMemo(() => {
+    if (view === ROOT) return items;
+    if (view === UNFILED) return items.filter((r) => !r.folderId);
+    return items.filter((r) => r.folderId === view);
+  }, [items, view]);
+
   const totals = useMemo(() => ({
-    count: items.length,
-    expiringSoon: items.filter((r) => {
+    count: scopedItems.length,
+    expiringSoon: scopedItems.filter((r) => {
       if (!r.warrantyMonths || !r.date) return false;
       const exp = new Date(r.date);
       exp.setMonth(exp.getMonth() + Number(r.warrantyMonths));
       const d = daysUntil(exp.toISOString());
       return d !== null && d >= 0 && d <= 30;
     }).length,
-  }), [items]);
+  }), [scopedItems]);
 
   const kindCounts = useMemo(() => {
-    const counts = { all: items.length };
+    const counts = { all: scopedItems.length };
     for (const k of Object.keys(DOC_KINDS)) counts[k] = 0;
-    for (const r of items) {
+    for (const r of scopedItems) {
       const k = r.kind || 'receipt';
       if (counts[k] != null) counts[k] += 1;
     }
     return counts;
-  }, [items]);
+  }, [scopedItems]);
 
   const filtered = useMemo(() => {
-    if (filter === 'all') return items;
-    return items.filter((r) => (r.kind || 'receipt') === filter);
-  }, [items, filter]);
+    if (filter === 'all') return scopedItems;
+    return scopedItems.filter((r) => (r.kind || 'receipt') === filter);
+  }, [scopedItems, filter]);
+
+  const inFolderView = view !== ROOT;
+  const headerTitle = view === ROOT
+    ? 'Documents'
+    : view === UNFILED
+      ? 'Uncategorized'
+      : currentFolder?.name || 'Folder';
+
+  const onHeaderBack = () => {
+    if (inFolderView) { setView(ROOT); setFilter('all'); return; }
+    navigation.goBack();
+  };
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.iconBtn}>
+        <TouchableOpacity onPress={onHeaderBack} style={styles.iconBtn}>
           <Ionicons name="arrow-back" size={20} color={COLORS.text} />
         </TouchableOpacity>
-        <Text style={styles.title}>Documents</Text>
+        <Text style={styles.title} numberOfLines={1}>{headerTitle}</Text>
         <TouchableOpacity onPress={showSource} disabled={busy} style={[styles.iconBtn, { backgroundColor: COLORS.text }]}>
           <Ionicons name="add" size={20} color="#fff" />
         </TouchableOpacity>
       </View>
 
+      {/* Folder strip only on root view */}
+      {!inFolderView && (
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.stripWrap}
+          contentContainerStyle={styles.folderStrip}
+        >
+          <TouchableOpacity
+            style={styles.folderCard}
+            activeOpacity={0.85}
+            onPress={() => setNewFolderOpen(true)}
+          >
+            <View style={[styles.folderIcon, { backgroundColor: COLORS.primarySoft }]}>
+              <Ionicons name="add" size={20} color={COLORS.primary} />
+            </View>
+            <Text style={styles.folderName} numberOfLines={1}>New folder</Text>
+            <Text style={styles.folderCount}>Create</Text>
+          </TouchableOpacity>
+
+          {folders.map((f) => (
+            <TouchableOpacity
+              key={f.id}
+              style={styles.folderCard}
+              activeOpacity={0.85}
+              onPress={() => { setView(f.id); setFilter('all'); }}
+              onLongPress={() => deleteFolder(f.id)}
+            >
+              <View style={[styles.folderIcon, { backgroundColor: COLORS.card }]}>
+                <Ionicons name="folder" size={20} color={COLORS.primary} />
+              </View>
+              <Text style={styles.folderName} numberOfLines={1}>{f.name}</Text>
+              <Text style={styles.folderCount}>{folderCount(f.id)} item{folderCount(f.id) === 1 ? '' : 's'}</Text>
+            </TouchableOpacity>
+          ))}
+
+          {unfiledCount > 0 && (
+            <TouchableOpacity
+              style={styles.folderCard}
+              activeOpacity={0.85}
+              onPress={() => { setView(UNFILED); setFilter('all'); }}
+            >
+              <View style={[styles.folderIcon, { backgroundColor: COLORS.card }]}>
+                <Ionicons name="albums-outline" size={20} color={COLORS.subtext} />
+              </View>
+              <Text style={styles.folderName} numberOfLines={1}>Uncategorized</Text>
+              <Text style={styles.folderCount}>{unfiledCount} item{unfiledCount === 1 ? '' : 's'}</Text>
+            </TouchableOpacity>
+          )}
+        </ScrollView>
+      )}
+
+      {/* Tag chips — applied to whatever scope is active */}
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
+        style={{ flexGrow: 0 }}
         contentContainerStyle={styles.chipRow}
       >
         <FilterChip label="All" count={kindCounts.all} active={filter === 'all'} onPress={() => setFilter('all')} />
@@ -183,20 +317,28 @@ export default function ReceiptsScreen({ navigation }) {
         ))}
       </ScrollView>
 
-      <ScrollView contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={[styles.body, { paddingBottom: 32 + insets.bottom }]}
+        showsVerticalScrollIndicator={false}
+      >
         <View style={styles.summary}>
           <Stat label="STORED" value={totals.count} />
           <Stat label="EXPIRING <30D" value={totals.expiringSoon} accent={totals.expiringSoon > 0 ? COLORS.warning : undefined} />
         </View>
 
-        {items.length === 0 ? (
+        {scopedItems.length === 0 ? (
           <View style={styles.empty}>
             <Text style={styles.emptyIcon}>📄</Text>
-            <Text style={styles.emptyTitle}>No documents yet</Text>
-            <Text style={styles.emptyHint}>Snap a photo of a bill, invoice, loan paper, or warranty card to keep it safe.</Text>
+            <Text style={styles.emptyTitle}>
+              {inFolderView ? 'No documents in this folder yet' : 'No documents yet'}
+            </Text>
+            <Text style={styles.emptyHint}>
+              Snap a photo of a bill, invoice, loan paper, or warranty card to keep it safe.
+            </Text>
             <TouchableOpacity style={styles.addCta} onPress={showSource} disabled={busy}>
               <Ionicons name={ReceiptService.isScannerAvailable() ? 'scan' : 'camera'} size={18} color="#fff" />
-              <Text style={styles.addCtaText}>Add your first document</Text>
+              <Text style={styles.addCtaText}>Add document</Text>
             </TouchableOpacity>
           </View>
         ) : filtered.length === 0 ? (
@@ -226,6 +368,44 @@ export default function ReceiptsScreen({ navigation }) {
           </View>
         </View>
       ) : null}
+
+      <Modal
+        visible={newFolderOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setNewFolderOpen(false)}
+      >
+        <TouchableOpacity
+          style={styles.modalBackdrop}
+          activeOpacity={1}
+          onPress={() => setNewFolderOpen(false)}
+        >
+          <View style={[styles.modalCard, { marginBottom: 24 + insets.bottom }]}>
+            <Text style={styles.modalTitle}>New folder</Text>
+            <TextInput
+              style={styles.modalInput}
+              value={newFolderName}
+              onChangeText={setNewFolderName}
+              placeholder="Folder name"
+              placeholderTextColor={COLORS.faint}
+              autoFocus
+              maxLength={40}
+              onSubmitEditing={createFolder}
+            />
+            <View style={styles.modalActions}>
+              <TouchableOpacity onPress={() => setNewFolderOpen(false)} style={styles.modalBtn}>
+                <Text style={styles.modalBtnText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={createFolder}
+                style={[styles.modalBtn, { backgroundColor: COLORS.text }]}
+              >
+                <Text style={[styles.modalBtnText, { color: '#fff' }]}>Create</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </TouchableOpacity>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -322,11 +502,11 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.card, borderWidth: 1, borderColor: COLORS.border,
     alignItems: 'center', justifyContent: 'center',
   },
-  title: { fontSize: 17, fontWeight: '800', color: COLORS.text },
+  title: { fontSize: 17, fontWeight: '800', color: COLORS.text, flex: 1, textAlign: 'center', marginHorizontal: 8 },
 
-  body: { padding: 18, paddingBottom: 40 },
+  body: { padding: 18, paddingTop: 4 },
 
-  summary: { flexDirection: 'row', gap: 10, marginBottom: 18 },
+  summary: { flexDirection: 'row', gap: 10, marginBottom: 14 },
   statBox: {
     flex: 1, backgroundColor: COLORS.card, borderRadius: 14, padding: 14,
     borderWidth: 1, borderColor: COLORS.border,
@@ -358,6 +538,20 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8, paddingVertical: 3, borderRadius: 999,
   },
   warrantyText: { color: '#fff', fontSize: 10, fontWeight: '700' },
+
+  stripWrap: { flexGrow: 0, maxHeight: 110 },
+  folderStrip: { paddingHorizontal: 16, paddingTop: 4, paddingBottom: 8, gap: 10 },
+  folderCard: {
+    width: 110, padding: 10, borderRadius: 14,
+    backgroundColor: COLORS.card, borderWidth: 1, borderColor: COLORS.border,
+  },
+  folderIcon: {
+    width: 36, height: 36, borderRadius: 10,
+    alignItems: 'center', justifyContent: 'center',
+    backgroundColor: COLORS.primarySoft,
+  },
+  folderName: { fontSize: 12, fontWeight: '800', color: COLORS.text, marginTop: 8 },
+  folderCount: { fontSize: 10, color: COLORS.subtext, marginTop: 2 },
 
   chipRow: {
     paddingHorizontal: 16, paddingTop: 2, paddingBottom: 8, gap: 8,
@@ -399,4 +593,22 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: COLORS.border, ...COLORS.shadow,
   },
   busyText: { fontSize: 13, fontWeight: '700', color: COLORS.text },
+
+  modalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' },
+  modalCard: {
+    backgroundColor: COLORS.background, marginHorizontal: 18, padding: 18,
+    borderRadius: 18, borderWidth: 1, borderColor: COLORS.border,
+  },
+  modalTitle: { fontSize: 15, fontWeight: '800', color: COLORS.text, marginBottom: 12 },
+  modalInput: {
+    borderWidth: 1, borderColor: COLORS.border, borderRadius: 12,
+    paddingHorizontal: 12, height: 48, backgroundColor: COLORS.card,
+    color: COLORS.text, fontSize: 15, fontWeight: '600',
+  },
+  modalActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: 8, marginTop: 14 },
+  modalBtn: {
+    paddingHorizontal: 16, height: 40, borderRadius: 12, justifyContent: 'center',
+    borderWidth: 1, borderColor: COLORS.border, backgroundColor: COLORS.card,
+  },
+  modalBtnText: { fontSize: 13, fontWeight: '800', color: COLORS.text },
 });

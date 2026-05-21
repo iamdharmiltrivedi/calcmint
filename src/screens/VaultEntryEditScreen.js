@@ -10,8 +10,6 @@ import { COLORS } from '../constants/colors';
 import { VAULT_TYPES } from '../constants/vaultTypes';
 import VaultService from '../services/VaultService';
 import PrimaryButton from '../components/PrimaryButton';
-import { useVaultUnlock } from '../context/VaultUnlockContext';
-
 const pad = (n) => String(n).padStart(2, '0');
 const formatDDMMYYYY = (d) => `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`;
 const parseDDMMYYYY = (s) => {
@@ -24,17 +22,12 @@ const parseDDMMYYYY = (s) => {
 
 export default function VaultEntryEditScreen({ navigation, route }) {
   const { type, id } = route.params || {};
-  const { unlocked, touch } = useVaultUnlock();
   const cfg = VAULT_TYPES[type];
 
   const [values, setValues] = useState({});
   const [revealed, setRevealed] = useState({}); // per-field temporary reveal
   const [pickerFor, setPickerFor] = useState(null); // key of date field whose picker is open
   const [saving, setSaving] = useState(false);
-
-  useEffect(() => {
-    if (!unlocked) navigation.replace('VaultUnlock');
-  }, [unlocked, navigation]);
 
   useEffect(() => {
     if (!id) return;
@@ -89,10 +82,9 @@ export default function VaultEntryEditScreen({ navigation, route }) {
   };
 
   if (!cfg) return null;
-  if (!unlocked) return null;
 
   return (
-    <SafeAreaView style={styles.safe} edges={['top']} onTouchStart={touch}>
+    <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.iconBtn}>
           <Ionicons name="arrow-back" size={20} color={COLORS.text} />

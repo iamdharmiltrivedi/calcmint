@@ -36,7 +36,6 @@ import BackupScreen from '../screens/BackupScreen';
 import ReceiptsScreen from '../screens/ReceiptsScreen';
 import ReceiptDetailScreen from '../screens/ReceiptDetailScreen';
 import VaultScreen from '../screens/VaultScreen';
-import VaultUnlockScreen from '../screens/VaultUnlockScreen';
 import VaultEntryEditScreen from '../screens/VaultEntryEditScreen';
 import LoansScreen from '../screens/LoansScreen';
 import LoanEditScreen from '../screens/LoanEditScreen';
@@ -79,13 +78,10 @@ const DashboardStack = () => (
   </Stack.Navigator>
 );
 
-// Vault tab — Vault screen redirects to VaultUnlock when locked,
-// so we keep Vault as the initial route. That way re-tapping the
-// tab doesn't pop the user back to the unlock screen unnecessarily.
+// Vault tab — direct access (no PIN gate).
 const VaultStack = () => (
-  <Stack.Navigator screenOptions={stackOptions} initialRouteName="Vault">
+  <Stack.Navigator screenOptions={stackOptions}>
     <Stack.Screen name="Vault" component={VaultScreen} />
-    <Stack.Screen name="VaultUnlock" component={VaultUnlockScreen} options={{ animation: 'fade' }} />
     <Stack.Screen name="VaultEntryEdit" component={VaultEntryEditScreen} />
   </Stack.Navigator>
 );

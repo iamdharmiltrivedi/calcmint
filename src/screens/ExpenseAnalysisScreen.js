@@ -1,9 +1,9 @@
-import React, { useState, useCallback } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   View, Text, ScrollView, StyleSheet, TouchableOpacity,
-  TextInput, Modal, Alert, FlatList, KeyboardAvoidingView, Platform,
+  TextInput, Modal, Alert, KeyboardAvoidingView, Platform,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../constants/colors';
@@ -15,29 +15,66 @@ import { useApp } from '../context/AppContext';
 import { formatINR, formatINRFull } from '../utils/formatters';
 
 const today = () => new Date().toISOString().split('T')[0];
+const monthKey = (e) => (e.date || e.createdAt || '').slice(0, 7);
+const thisMonthKey = () => new Date().toISOString().slice(0, 7);
+
+const monthLabel = (key) => {
+  if (!key) return '';
+  const [y, m] = key.split('-');
+  const d = new Date(Number(y), Number(m) - 1, 1);
+  return d.toLocaleString('en-IN', { month: 'long', year: 'numeric' });
+};
+
+const monthShort = (key) => {
+  if (!key) return '';
+  const [y, m] = key.split('-');
+  const d = new Date(Number(y), Number(m) - 1, 1);
+  return d.toLocaleString('en-IN', { month: 'short' });
+};
 
 const EMPTY_FORM = { amount: '', categoryId: 'food', note: '', date: today() };
 
 export default function ExpenseAnalysisScreen() {
+  const insets = useSafeAreaInsets();
   const { expenses, addExpense, removeExpense } = useApp();
+
+  // null = month list view; "YYYY-MM" = month detail view
+  const [selectedMonth, setSelectedMonth] = useState(thisMonthKey());
   const [modalVisible, setModalVisible] = useState(false);
   const [form, setForm] = useState(EMPTY_FORM);
   const [formErr, setFormErr] = useState({});
 
-  // Current-month filter
-  const thisMonth = new Date().toISOString().slice(0, 7); // "2024-03"
-  const monthExpenses = expenses.filter(
-    (e) => (e.date || e.createdAt || '').slice(0, 7) === thisMonth,
-  );
-  const totalThisMonth = monthExpenses.reduce((s, e) => s + parseFloat(e.amount || 0), 0);
+  // Group all expenses by YYYY-MM (newest first)
+  const monthGroups = useMemo(() => {
+    const map = new Map();
+    for (const e of expenses) {
+      const k = monthKey(e);
+      if (!k) continue;
+      if (!map.has(k)) map.set(k, []);
+      map.get(k).push(e);
+    }
+    const arr = Array.from(map.entries()).map(([k, list]) => ({
+      key: k,
+      list,
+      total: list.reduce((s, e) => s + parseFloat(e.amount || 0), 0),
+    }));
+    arr.sort((a, b) => (a.key < b.key ? 1 : -1));
+    return arr;
+  }, [expenses]);
 
-  // Group by category for the donut chart
-  const categoryTotals = EXPENSE_CATEGORIES.map((cat) => {
-    const total = monthExpenses
-      .filter((e) => e.categoryId === cat.id)
-      .reduce((s, e) => s + parseFloat(e.amount || 0), 0);
-    return { ...cat, value: total };
-  }).filter((c) => c.value > 0);
+  const currentGroup = useMemo(
+    () => monthGroups.find((g) => g.key === selectedMonth) || { key: selectedMonth, list: [], total: 0 },
+    [monthGroups, selectedMonth],
+  );
+
+  const categoryTotals = useMemo(() =>
+    EXPENSE_CATEGORIES.map((cat) => {
+      const total = currentGroup.list
+        .filter((e) => e.categoryId === cat.id)
+        .reduce((s, e) => s + parseFloat(e.amount || 0), 0);
+      return { ...cat, value: total };
+    }).filter((c) => c.value > 0),
+  [currentGroup]);
 
   const setField = (key) => (val) => setForm((p) => ({ ...p, [key]: val }));
 
@@ -49,6 +86,16 @@ export default function ExpenseAnalysisScreen() {
     return Object.keys(e).length === 0;
   };
 
+  const openAdd = () => {
+    // Pre-fill date to the 1st of the selected month if it's not the current one,
+    // so users can backfill historical data without re-typing the date.
+    const defaultDate =
+      selectedMonth === thisMonthKey() ? today() : `${selectedMonth}-01`;
+    setForm({ ...EMPTY_FORM, date: defaultDate });
+    setFormErr({});
+    setModalVisible(true);
+  };
+
   const handleAdd = async () => {
     if (!validateForm()) return;
     await addExpense({
@@ -57,6 +104,9 @@ export default function ExpenseAnalysisScreen() {
       note:       form.note.trim(),
       date:       form.date || today(),
     });
+    // Jump the view to whichever month the new expense belongs to,
+    // so users immediately see what they just added.
+    if (form.date) setSelectedMonth(form.date.slice(0, 7));
     setForm(EMPTY_FORM);
     setModalVisible(false);
   };
@@ -74,89 +124,149 @@ export default function ExpenseAnalysisScreen() {
 
   const getCat = (id) => EXPENSE_CATEGORIES.find((c) => c.id === id) || EXPENSE_CATEGORIES.at(-1);
 
+  const inDetail = selectedMonth != null;
+
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       <BrandHeader />
 
-      {/* Month-summary hero */}
+      {/* Header hero */}
       <LinearGradient colors={COLORS.gradient} style={styles.header}>
         <View style={styles.headerOrb} />
         <View style={styles.headerRow}>
-          <View>
+          <View style={{ flex: 1 }}>
             <Text style={styles.headerTitle}>Expense Tracker</Text>
             <Text style={styles.headerSub}>
-              {new Date().toLocaleString('en-IN', { month: 'long', year: 'numeric' })}
+              {inDetail ? monthLabel(selectedMonth) : 'All months'}
             </Text>
           </View>
-          <TouchableOpacity style={styles.addBtn} onPress={() => setModalVisible(true)}>
+
+          {inDetail && monthGroups.length > 1 && (
+            <TouchableOpacity
+              style={styles.ghostBtn}
+              onPress={() => setSelectedMonth(null)}
+            >
+              <Ionicons name="calendar-outline" size={16} color="#fff" />
+              <Text style={styles.ghostBtnText}>Months</Text>
+            </TouchableOpacity>
+          )}
+
+          <TouchableOpacity style={styles.addBtn} onPress={openAdd}>
             <Ionicons name="add" size={22} color="#fff" />
           </TouchableOpacity>
         </View>
 
         <View style={styles.totalBox}>
-          <Text style={styles.totalLabel}>Total Spent This Month</Text>
-          <Text style={styles.totalAmount}>{formatINRFull(totalThisMonth)}</Text>
+          <Text style={styles.totalLabel}>
+            {inDetail ? 'Total Spent This Month' : 'Lifetime Total'}
+          </Text>
+          <Text style={styles.totalAmount}>
+            {formatINRFull(
+              inDetail
+                ? currentGroup.total
+                : monthGroups.reduce((s, g) => s + g.total, 0),
+            )}
+          </Text>
         </View>
       </LinearGradient>
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.body}>
-        {/* Donut chart — only shown if there are expenses */}
-        {categoryTotals.length > 0 ? (
-          <View style={styles.card}>
-            <Text style={styles.cardTitle}>Spending Breakdown</Text>
-            <DonutChart
-              data={categoryTotals.map((c) => ({
-                label: c.emoji + ' ' + c.label,
-                value: c.value,
-                color: c.color,
-              }))}
-              centerValue={totalThisMonth}
-              centerLabel="This Month"
-              size={200}
-            />
-          </View>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={[styles.body, { paddingBottom: 32 + insets.bottom }]}
+      >
+        {!inDetail ? (
+          // ── Month list ─────────────────────────────────────────────────
+          monthGroups.length === 0 ? (
+            <View style={styles.empty}>
+              <Text style={styles.emptyIcon}>💸</Text>
+              <Text style={styles.emptyTitle}>No expenses yet</Text>
+              <Text style={styles.emptySub}>Tap + to add your first expense</Text>
+            </View>
+          ) : (
+            <View style={styles.card}>
+              <Text style={styles.cardTitle}>Months</Text>
+              {monthGroups.map((g) => (
+                <TouchableOpacity
+                  key={g.key}
+                  style={styles.monthRow}
+                  activeOpacity={0.85}
+                  onPress={() => setSelectedMonth(g.key)}
+                >
+                  <View style={styles.monthBadge}>
+                    <Text style={styles.monthBadgeText}>{monthShort(g.key)}</Text>
+                  </View>
+                  <View style={{ flex: 1, marginLeft: 12 }}>
+                    <Text style={styles.monthName}>{monthLabel(g.key)}</Text>
+                    <Text style={styles.monthMeta}>{g.list.length} transaction{g.list.length === 1 ? '' : 's'}</Text>
+                  </View>
+                  <View style={{ alignItems: 'flex-end' }}>
+                    <Text style={styles.monthAmount}>{formatINR(g.total)}</Text>
+                    <Ionicons name="chevron-forward" size={16} color={COLORS.faint} />
+                  </View>
+                </TouchableOpacity>
+              ))}
+            </View>
+          )
         ) : (
-          <View style={styles.empty}>
-            <Text style={styles.emptyIcon}>💸</Text>
-            <Text style={styles.emptyTitle}>No expenses yet</Text>
-            <Text style={styles.emptySub}>Tap + to add your first expense</Text>
-          </View>
-        )}
+          // ── Month detail ───────────────────────────────────────────────
+          <>
+            {categoryTotals.length > 0 ? (
+              <View style={styles.card}>
+                <Text style={styles.cardTitle}>Spending Breakdown</Text>
+                <DonutChart
+                  data={categoryTotals.map((c) => ({
+                    label: c.emoji + ' ' + c.label,
+                    value: c.value,
+                    color: c.color,
+                  }))}
+                  centerValue={currentGroup.total}
+                  centerLabel={monthShort(selectedMonth)}
+                  size={200}
+                />
+              </View>
+            ) : (
+              <View style={styles.empty}>
+                <Text style={styles.emptyIcon}>💸</Text>
+                <Text style={styles.emptyTitle}>Nothing in {monthShort(selectedMonth)}</Text>
+                <Text style={styles.emptySub}>Tap + to add an expense for this month</Text>
+              </View>
+            )}
 
-        {/* Expense list */}
-        {monthExpenses.length > 0 && (
-          <View style={styles.card}>
-            <Text style={styles.cardTitle}>
-              Transactions ({monthExpenses.length})
-            </Text>
-            {monthExpenses.map((item) => {
-              const cat = getCat(item.categoryId);
-              return (
-                <View key={item.id} style={styles.expRow}>
-                  <View style={[styles.expIcon, { backgroundColor: cat.color + '20' }]}>
-                    <Text style={styles.expEmoji}>{cat.emoji}</Text>
-                  </View>
-                  <View style={styles.expBody}>
-                    <Text style={styles.expNote} numberOfLines={1}>
-                      {item.note || cat.label}
-                    </Text>
-                    <Text style={styles.expMeta}>
-                      {cat.label}  ·  {item.date || item.createdAt?.slice(0, 10) || ''}
-                    </Text>
-                  </View>
-                  <View style={styles.expRight}>
-                    <Text style={styles.expAmt}>{formatINR(item.amount)}</Text>
-                    <TouchableOpacity
-                      onPress={() => confirmDelete(item.id, item.note)}
-                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                    >
-                      <Ionicons name="trash-outline" size={15} color={COLORS.error} />
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              );
-            })}
-          </View>
+            {currentGroup.list.length > 0 && (
+              <View style={styles.card}>
+                <Text style={styles.cardTitle}>
+                  Transactions ({currentGroup.list.length})
+                </Text>
+                {currentGroup.list.map((item) => {
+                  const cat = getCat(item.categoryId);
+                  return (
+                    <View key={item.id} style={styles.expRow}>
+                      <View style={[styles.expIcon, { backgroundColor: cat.color + '20' }]}>
+                        <Text style={styles.expEmoji}>{cat.emoji}</Text>
+                      </View>
+                      <View style={styles.expBody}>
+                        <Text style={styles.expNote} numberOfLines={1}>
+                          {item.note || cat.label}
+                        </Text>
+                        <Text style={styles.expMeta}>
+                          {cat.label}  ·  {item.date || item.createdAt?.slice(0, 10) || ''}
+                        </Text>
+                      </View>
+                      <View style={styles.expRight}>
+                        <Text style={styles.expAmt}>{formatINR(item.amount)}</Text>
+                        <TouchableOpacity
+                          onPress={() => confirmDelete(item.id, item.note)}
+                          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                        >
+                          <Ionicons name="trash-outline" size={15} color={COLORS.error} />
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                  );
+                })}
+              </View>
+            )}
+          </>
         )}
 
         <AdBanner style={{ marginTop: 18 }} />
@@ -169,7 +279,7 @@ export default function ExpenseAnalysisScreen() {
         presentationStyle="pageSheet"
         onRequestClose={() => setModalVisible(false)}
       >
-        <SafeAreaView style={styles.modal} edges={['top']}>
+        <SafeAreaView style={styles.modal} edges={['top', 'bottom']}>
           <View style={styles.modalHeader}>
             <Text style={styles.modalTitle}>Add Expense</Text>
             <TouchableOpacity onPress={() => setModalVisible(false)}>
@@ -180,7 +290,6 @@ export default function ExpenseAnalysisScreen() {
           <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
             <ScrollView contentContainerStyle={styles.modalBody} keyboardShouldPersistTaps="handled">
 
-              {/* Amount */}
               <Text style={styles.fieldLabel}>Amount</Text>
               <View style={[styles.fieldRow, formErr.amount && styles.fieldErr]}>
                 <Text style={styles.prefix}>₹</Text>
@@ -196,7 +305,6 @@ export default function ExpenseAnalysisScreen() {
               </View>
               {formErr.amount ? <Text style={styles.errMsg}>{formErr.amount}</Text> : null}
 
-              {/* Date */}
               <Text style={[styles.fieldLabel, { marginTop: 14 }]}>Date</Text>
               <View style={styles.fieldRow}>
                 <TextInput
@@ -210,7 +318,6 @@ export default function ExpenseAnalysisScreen() {
                 />
               </View>
 
-              {/* Note */}
               <Text style={[styles.fieldLabel, { marginTop: 14 }]}>Note (optional)</Text>
               <View style={styles.fieldRow}>
                 <TextInput
@@ -224,7 +331,6 @@ export default function ExpenseAnalysisScreen() {
                 />
               </View>
 
-              {/* Category grid */}
               <Text style={[styles.fieldLabel, { marginTop: 14 }]}>Category</Text>
               <View style={styles.catGrid}>
                 {EXPENSE_CATEGORIES.map((cat) => (
@@ -273,7 +379,6 @@ export default function ExpenseAnalysisScreen() {
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: COLORS.background },
 
-  // Header
   header: {
     paddingHorizontal: 16,
     paddingTop: 14,
@@ -288,7 +393,7 @@ const styles = StyleSheet.create({
     width: 160, height: 160, borderRadius: 80,
     backgroundColor: 'rgba(201,162,74,0.22)',
   },
-  headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
+  headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 8 },
   headerTitle: { fontSize: 22, fontWeight: '800', color: '#fff' },
   headerSub: { fontSize: 13, color: 'rgba(255,255,255,0.75)', marginTop: 2 },
   addBtn: {
@@ -296,6 +401,12 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.2)',
     justifyContent: 'center', alignItems: 'center',
   },
+  ghostBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    paddingHorizontal: 10, height: 32, borderRadius: 16,
+    backgroundColor: 'rgba(255,255,255,0.18)',
+  },
+  ghostBtnText: { color: '#fff', fontSize: 12, fontWeight: '700' },
   totalBox: {
     backgroundColor: 'rgba(255,255,255,0.15)', borderRadius: 14,
     padding: 14, marginTop: 14,
@@ -303,21 +414,33 @@ const styles = StyleSheet.create({
   totalLabel: { fontSize: 12, color: 'rgba(255,255,255,0.8)', fontWeight: '500' },
   totalAmount: { fontSize: 26, fontWeight: '800', color: '#fff', marginTop: 2 },
 
-  // Body
-  body: { padding: 16, paddingBottom: 32 },
+  body: { padding: 16 },
   card: {
     backgroundColor: COLORS.card, borderRadius: 16, padding: 16,
     marginBottom: 14, ...COLORS.shadow,
   },
   cardTitle: { fontSize: 15, fontWeight: '700', color: COLORS.text, marginBottom: 14 },
 
-  // Empty
+  monthRow: {
+    flexDirection: 'row', alignItems: 'center',
+    paddingVertical: 10,
+    borderBottomWidth: 1, borderBottomColor: COLORS.border,
+  },
+  monthBadge: {
+    width: 44, height: 44, borderRadius: 12,
+    backgroundColor: COLORS.primarySoft,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  monthBadgeText: { fontSize: 12, fontWeight: '800', color: COLORS.primary, letterSpacing: 0.5 },
+  monthName: { fontSize: 14, fontWeight: '700', color: COLORS.text },
+  monthMeta: { fontSize: 11, color: COLORS.subtext, marginTop: 2 },
+  monthAmount: { fontSize: 14, fontWeight: '800', color: COLORS.text },
+
   empty: { alignItems: 'center', paddingVertical: 48 },
   emptyIcon: { fontSize: 48, marginBottom: 12 },
   emptyTitle: { fontSize: 16, fontWeight: '700', color: COLORS.text },
   emptySub: { fontSize: 13, color: COLORS.subtext, marginTop: 4 },
 
-  // Expense row
   expRow: {
     flexDirection: 'row', alignItems: 'center', paddingVertical: 10,
     borderBottomWidth: 1, borderBottomColor: COLORS.border,
@@ -333,7 +456,6 @@ const styles = StyleSheet.create({
   expRight: { alignItems: 'flex-end', gap: 4 },
   expAmt: { fontSize: 14, fontWeight: '700', color: COLORS.text },
 
-  // Modal
   modal: { flex: 1, backgroundColor: COLORS.background },
   modalHeader: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',

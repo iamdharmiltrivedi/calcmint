@@ -66,7 +66,7 @@ export default function LockSetupScreen({ navigation, route }) {
   };
 
   return (
-    <SafeAreaView style={styles.safe} edges={['top']}>
+    <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
       <View style={styles.header}>
         <TouchableOpacity onPress={leave} style={styles.back}>
           <Ionicons name="arrow-back" size={22} color={COLORS.text} />

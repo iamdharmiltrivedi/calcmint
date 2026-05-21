@@ -75,7 +75,7 @@ export default function GoalPlannerScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.safe} edges={['top']}>
+    <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
       <BrandHeader />
 
       {/* Page-specific hero */}
@@ -180,7 +180,7 @@ export default function GoalPlannerScreen() {
         presentationStyle="pageSheet"
         onRequestClose={() => setModalVisible(false)}
       >
-        <SafeAreaView style={styles.modal} edges={['top']}>
+        <SafeAreaView style={styles.modal} edges={['top', 'bottom']}>
           <View style={styles.modalHeader}>
             <Text style={styles.modalTitle}>New Financial Goal</Text>
             <TouchableOpacity onPress={() => setModalVisible(false)}>

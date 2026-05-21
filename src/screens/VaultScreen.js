@@ -1,13 +1,12 @@
 import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import {
-  View, Text, StyleSheet, TouchableOpacity, ScrollView, Modal, Alert,
+  View, Text, StyleSheet, TouchableOpacity, ScrollView, Modal,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../constants/colors';
 import { VAULT_TYPES, VAULT_TYPE_LIST } from '../constants/vaultTypes';
 import VaultService from '../services/VaultService';
-import { useVaultUnlock } from '../context/VaultUnlockContext';
 
 const previewOf = (entry) => {
   const t = VAULT_TYPES[entry.type];
@@ -16,7 +15,7 @@ const previewOf = (entry) => {
 };
 
 export default function VaultScreen({ navigation }) {
-  const { unlocked, lock, touch } = useVaultUnlock();
+  const insets = useSafeAreaInsets();
   const [entries, setEntries] = useState([]);
   const [picker, setPicker] = useState(false);
 
@@ -30,18 +29,12 @@ export default function VaultScreen({ navigation }) {
     setEntries(items);
   }, []);
 
-  useEffect(() => { if (unlocked) load(); }, [unlocked, load]);
+  useEffect(() => { load(); }, [load]);
 
-  // Force re-lock if user comes here without unlocking
   useEffect(() => {
-    if (!unlocked) navigation.replace('VaultUnlock');
-  }, [unlocked, navigation]);
-
-  // Refresh on focus
-  useEffect(() => {
-    const focus = navigation.addListener('focus', () => { if (unlocked) load(); });
+    const focus = navigation.addListener('focus', load);
     return focus;
-  }, [navigation, unlocked, load]);
+  }, [navigation, load]);
 
   const grouped = useMemo(() => {
     const groups = {};
@@ -56,27 +49,22 @@ export default function VaultScreen({ navigation }) {
     navigation.navigate('VaultEntryEdit', { type: typeKey });
   };
 
-  if (!unlocked) return null;
-
   return (
-    <SafeAreaView style={styles.safe} edges={['top']} onTouchStart={touch}>
+    <SafeAreaView style={styles.safe} edges={['top']}>
       <View style={styles.header}>
         <TouchableOpacity onPress={leaveVault} style={styles.iconBtn}>
           <Ionicons name="arrow-back" size={20} color={COLORS.text} />
         </TouchableOpacity>
-        <View style={{ alignItems: 'center', flex: 1 }}>
-          <Text style={styles.title}>Vault</Text>
-          <View style={styles.unlockedPill}>
-            <Ionicons name="lock-open" size={10} color={COLORS.primary} />
-            <Text style={styles.unlockedText}>UNLOCKED</Text>
-          </View>
-        </View>
-        <TouchableOpacity onPress={() => { lock(); leaveVault(); }} style={styles.iconBtn}>
-          <Ionicons name="lock-closed-outline" size={18} color={COLORS.text} />
+        <Text style={styles.title}>Vault</Text>
+        <TouchableOpacity onPress={() => setPicker(true)} style={[styles.iconBtn, { backgroundColor: COLORS.text }]}>
+          <Ionicons name="add" size={20} color="#fff" />
         </TouchableOpacity>
       </View>
 
-      <ScrollView contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={[styles.body, { paddingBottom: 100 + insets.bottom }]}
+        showsVerticalScrollIndicator={false}
+      >
         {entries.length === 0 ? (
           <View style={styles.empty}>
             <Text style={styles.emptyIcon}>🔐</Text>
@@ -124,21 +112,24 @@ export default function VaultScreen({ navigation }) {
         <View style={styles.noteCard}>
           <Ionicons name="information-circle-outline" size={14} color={COLORS.subtext} />
           <Text style={styles.noteText}>
-            Vault data stays on this device. Strength depends on your phone's lock screen.
-            Use a device PIN/biometric in your system settings for best protection.
+            Vault data stays on this device. Nothing leaves your phone.
           </Text>
         </View>
       </ScrollView>
 
       {entries.length > 0 && (
-        <TouchableOpacity style={styles.fab} onPress={() => setPicker(true)} activeOpacity={0.85}>
+        <TouchableOpacity
+          style={[styles.fab, { bottom: 28 + insets.bottom }]}
+          onPress={() => setPicker(true)}
+          activeOpacity={0.85}
+        >
           <Ionicons name="add" size={24} color="#fff" />
         </TouchableOpacity>
       )}
 
       <Modal visible={picker} transparent animationType="fade" onRequestClose={() => setPicker(false)}>
         <TouchableOpacity style={styles.pickerBackdrop} activeOpacity={1} onPress={() => setPicker(false)}>
-          <View style={styles.pickerSheet}>
+          <View style={[styles.pickerSheet, { paddingBottom: 24 + insets.bottom }]}>
             <Text style={styles.pickerTitle}>What are you adding?</Text>
             <View style={styles.pickerGrid}>
               {VAULT_TYPE_LIST.map((t) => (
@@ -169,14 +160,8 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
   },
   title: { fontSize: 17, fontWeight: '800', color: COLORS.text },
-  unlockedPill: {
-    flexDirection: 'row', alignItems: 'center', gap: 4,
-    backgroundColor: COLORS.primarySoft, paddingHorizontal: 8, height: 18, borderRadius: 9,
-    marginTop: 3,
-  },
-  unlockedText: { fontSize: 9, fontWeight: '800', color: COLORS.primary, letterSpacing: 0.6 },
 
-  body: { padding: 18, paddingBottom: 100 },
+  body: { padding: 18 },
 
   sectionHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
   sectionIcon: { width: 22, height: 22, borderRadius: 7, alignItems: 'center', justifyContent: 'center' },
@@ -208,7 +193,7 @@ const styles = StyleSheet.create({
   noteText: { flex: 1, fontSize: 11.5, color: COLORS.subtext, lineHeight: 17 },
 
   fab: {
-    position: 'absolute', right: 22, bottom: 28,
+    position: 'absolute', right: 22,
     width: 56, height: 56, borderRadius: 28,
     backgroundColor: COLORS.text,
     alignItems: 'center', justifyContent: 'center',
@@ -217,7 +202,7 @@ const styles = StyleSheet.create({
 
   pickerBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' },
   pickerSheet: {
-    backgroundColor: COLORS.background, padding: 18, paddingBottom: 32,
+    backgroundColor: COLORS.background, padding: 18,
     borderTopLeftRadius: 24, borderTopRightRadius: 24,
   },
   pickerTitle: { fontSize: 14, fontWeight: '800', color: COLORS.text, marginBottom: 14 },

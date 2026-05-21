@@ -8,6 +8,7 @@ const KEYS = {
   SUBSCRIPTIONS: '@fc_subscriptions',
   SPLIT_GROUPS: '@fc_split_groups',
   RECEIPTS: '@fc_receipts',
+  DOC_FOLDERS: '@fc_doc_folders',
   LOANS: '@fc_loans',
   LOCK: '@fc_lock',
   SETTINGS: '@fc_settings',
@@ -64,6 +65,10 @@ const StorageService = {
   // ── Receipts ─────────────────────────────────────────────────────────────
   saveReceipts: (receipts) => writeJSON(KEYS.RECEIPTS, receipts),
   getReceipts:  () => readJSON(KEYS.RECEIPTS, []),
+
+  // ── Document folders ─────────────────────────────────────────────────────
+  saveDocFolders: (folders) => writeJSON(KEYS.DOC_FOLDERS, folders),
+  getDocFolders:  () => readJSON(KEYS.DOC_FOLDERS, []),
 
   // ── Loans ────────────────────────────────────────────────────────────────
   saveLoans: (loans) => writeJSON(KEYS.LOANS, loans),
