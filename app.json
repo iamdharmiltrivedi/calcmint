@@ -21,7 +21,7 @@
         "backgroundColor": "#0B5D3B"
       },
       "package": "com.dharmil.calcmint",
-      "versionCode": 6
+      "versionCode": 9
     },
     "web": {
       "favicon": "./assets/favicon.png"

@@ -8,7 +8,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../constants/colors';
 import { useLock } from '../context/LockContext';
 import { useVaultUnlock } from '../context/VaultUnlockContext';
-import BiometricService from '../services/BiometricService';
 
 const PIN_LENGTH = 4;
 
@@ -17,8 +16,6 @@ export default function VaultUnlockScreen({ navigation }) {
   const { unlocked, unlock } = useVaultUnlock();
   const [pin, setPin] = useState('');
   const [error, setError] = useState(false);
-  const [bio, setBio] = useState({ available: false, label: 'Biometric' });
-  const [showingBio, setShowingBio] = useState(false);
 
   const exitToDashboard = useCallback(() => {
     if (navigation.canGoBack()) navigation.goBack();
@@ -37,7 +34,7 @@ export default function VaultUnlockScreen({ navigation }) {
     if (!lockEnabled) {
       Alert.alert(
         'Vault needs a PIN',
-        'Set up a PIN to protect your vault. You can also enable biometric unlock.',
+        'Set up a PIN to protect your vault.',
         [
           { text: 'Cancel', style: 'cancel', onPress: exitToDashboard },
           { text: 'Set up', onPress: () => navigation.navigate('LockSetup', { fromVault: true }) },
@@ -45,30 +42,6 @@ export default function VaultUnlockScreen({ navigation }) {
       );
     }
   }, [lockEnabled, navigation, exitToDashboard]);
-
-  // Probe biometric capability and offer it
-  useEffect(() => {
-    let cancelled = false;
-    BiometricService.capability().then((cap) => {
-      if (cancelled) return;
-      setBio(cap);
-    });
-    return () => { cancelled = true; };
-  }, []);
-
-  const tryBiometric = useCallback(async () => {
-    if (showingBio || !bio.available) return;
-    setShowingBio(true);
-    const res = await BiometricService.authenticate('Unlock CalcMint Vault');
-    setShowingBio(false);
-    if (res.success) unlock();
-  }, [bio, unlock, showingBio]);
-
-  // Auto-prompt biometric on first mount (don't loop on dismiss)
-  useEffect(() => {
-    if (!lockEnabled || !bio.available) return;
-    tryBiometric();
-  }, [bio.available, lockEnabled, tryBiometric]);
 
   // PIN flow uses the same PIN as the app lock.
   useEffect(() => {
@@ -101,9 +74,7 @@ export default function VaultUnlockScreen({ navigation }) {
           <Ionicons name="lock-closed" size={26} color="#fff" />
         </View>
         <Text style={styles.title}>Vault is locked</Text>
-        <Text style={styles.subtitle}>
-          {bio.available ? `Use ${bio.label} or enter your PIN` : 'Enter your app PIN to continue'}
-        </Text>
+        <Text style={styles.subtitle}>Enter your app PIN to continue</Text>
       </View>
 
       <View style={styles.dots}>
@@ -116,20 +87,11 @@ export default function VaultUnlockScreen({ navigation }) {
       </View>
 
       <View style={styles.pad}>
-        {[['1','2','3'],['4','5','6'],['7','8','9'],['bio','0','del']].map((row, ri) => (
+        {[['1','2','3'],['4','5','6'],['7','8','9'],['','0','del']].map((row, ri) => (
           <View style={styles.row} key={ri}>
             {row.map((d, ci) => {
-              if (d === 'bio') {
-                if (!bio.available) return <View key={ci} style={styles.key} />;
-                return (
-                  <TouchableOpacity key={ci} style={styles.key} onPress={tryBiometric} activeOpacity={0.7}>
-                    <Ionicons
-                      name={bio.label === 'Fingerprint' ? 'finger-print' : 'scan'}
-                      size={26}
-                      color="#fff"
-                    />
-                  </TouchableOpacity>
-                );
+              if (d === '') {
+                return <View key={ci} style={styles.key} />;
               }
               if (d === 'del') {
                 return (

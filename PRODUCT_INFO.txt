@@ -9,15 +9,17 @@ TAGLINE
   Plan . Save . Grow
 
 ONE-LINE PITCH
-  10 finance calculators in Indian currency format, works offline, on your
-  phone.
+  A complete personal-finance toolkit for India: 12 calculators, expense /
+  loan / subscription tracking, document vault, and goal planning - all
+  offline on your phone.
 
 CATEGORY
   Finance / Personal Finance / Productivity
 
 TARGET AUDIENCE
   Indian users (salaried professionals, investors, home-loan seekers, students)
-  who need quick financial estimates without an internet connection.
+  who need quick financial estimates and lightweight money tracking without
+  an internet connection.
 
 ------------------------------------------------------------------------------
 PLATFORM & TECH
@@ -27,24 +29,31 @@ PLATFORM & TECH
   Language         JavaScript (React 19)
   Navigation       React Navigation (bottom tabs + native stack)
   Storage          AsyncStorage (local, on-device only)
-  UI               Custom design system with linear gradients and SVG charts
+  Secure storage   expo-secure-store (for PIN hash / vault keys)
+  Files            expo-file-system (legacy API) for receipts and backups
+  UI               Custom design system, linear gradients, SVG charts
   Platforms        iOS + Android (single codebase)
-  Bundle ID        com.dharmil.financecalculator
+  Bundle ID        com.dharmil.calcmint
   Distribution     EAS Build (project ID 98e5c2c5-57b9-4c70-817f-221246a0d7d5)
 
 ------------------------------------------------------------------------------
 APP STRUCTURE
 ------------------------------------------------------------------------------
 
-  3 bottom tabs:
-    1. Home      - calculator grid + search
-    2. Expenses  - monthly expense logger with category breakdown donut chart
-    3. Goals     - savings-goal tracker with progress bars
+  5 bottom tabs:
+    1. Dashboard - overview: spent this month, EMI/MO, Subs/MO, goals,
+                   quick-actions row (Expense, Loans, Split, Subs, Docs)
+    2. Tools     - calculator grid + search
+    3. Expenses  - monthly expense logger with category breakdown donut chart
+    4. Vault     - PIN-locked secure storage for notes / credentials
+    5. More      - settings, backup, lock setup, account info
 
-  Home tab opens a stack of 10 calculator screens.
+  The Tools tab opens a stack of 12 calculator screens.
+  Shared flows (Settings, Loans, Receipts, Subscriptions, Split Groups,
+  Goals) live in the root stack and are reachable from any tab.
 
 ------------------------------------------------------------------------------
-CALCULATORS (10 TOTAL)
+CALCULATORS (12 TOTAL)
 ------------------------------------------------------------------------------
 
   1.  Home Loan       - EMI + total interest breakdown, pre-payment scenarios
@@ -54,9 +63,11 @@ CALCULATORS (10 TOTAL)
   5.  Fixed Deposit   - FD maturity with monthly/quarterly/annual compounding
   6.  Recurring Dep.  - RD monthly growth and maturity
   7.  PPF             - 15-year PPF projection at current 7.1% rate
-  8.  ITR Calculator  - Old vs New tax regime comparison (Indian income tax)
+  8.  Tax Savings     - Old vs New tax regime comparison (Indian income tax)
   9.  Goal Planner    - reverse-calculate the monthly SIP needed for a target
   10. Budget          - 50/30/20 budget allocation
+  11. Retirement      - retirement corpus projection
+  12. Unit Converter  - common unit conversions
 
 ------------------------------------------------------------------------------
 KEY FEATURES
@@ -65,10 +76,30 @@ KEY FEATURES
   - 100 percent offline. No accounts, no login, no network calls for app data.
   - Indian currency formatting (lakh / crore notation).
   - Persists last-used calculator and last-used inputs per calculator.
-  - Donut charts and bar charts for visual breakdown of results.
-  - "Continue where you left" shortcut on the Home tab.
-  - In-app search across the 10 calculators.
+  - Donut and bar charts for visual breakdown of results.
+  - Dashboard with at-a-glance month spend, EMI / subscriptions, and goals.
+  - "Continue where you left" shortcut on the Tools tab.
+  - In-app search across the 12 calculators.
+  - Subscription tracker with monthly reminders.
+  - Loan tracker with monthly EMI reminders.
+  - Split groups for shared expenses.
+  - Receipts / Documents capture (Bill, Invoice, Loan paper, Warranty, etc.)
+    with warranty-expiry reminders.
   - Goal tracking and expense logging persisted locally.
+  - PIN-protected Vault for sensitive notes / credentials.
+  - App-wide lock with PIN setup screen.
+  - Encrypted on-device backup / restore (AES via crypto-js, exported through
+    expo-sharing).
+
+------------------------------------------------------------------------------
+SECURITY / LOCK MODEL
+------------------------------------------------------------------------------
+
+  - 4-digit PIN configured in LockSetup; same PIN unlocks the Vault.
+  - Vault uses an in-app PIN keypad only. The native Android / iOS device
+    credential popup (LocalAuthentication) is NOT invoked during vault
+    unlock - this avoids double-prompting on Android.
+  - PIN hash and vault keys live in expo-secure-store.
 
 ------------------------------------------------------------------------------
 MONETIZATION (GOOGLE ADMOB)
@@ -80,7 +111,7 @@ MONETIZATION (GOOGLE ADMOB)
   Interstitial unit ID ca-app-pub-7447692286150378/2480425349
 
   PLACEMENTS
-    - Adaptive banner at the bottom of Home, Expenses, Goals.
+    - Adaptive banner at the bottom of Dashboard, Tools, Expenses.
     - Adaptive banner at the bottom of every calculator screen (after results).
     - Interstitial on back-press from any calculator, throttled to once every
       3 minutes (per session).
@@ -98,8 +129,11 @@ MONETIZATION (GOOGLE ADMOB)
 PRIVACY POSTURE
 ------------------------------------------------------------------------------
 
-  - All financial data (inputs, goals, expenses) stays on-device via
-    AsyncStorage. Nothing is uploaded to a server (no backend exists).
+  - All financial data (inputs, goals, expenses, loans, subscriptions,
+    vault entries, documents) stays on-device via AsyncStorage / secure-store
+    / local filesystem. Nothing is uploaded to a server (no backend exists).
+  - Backups are encrypted locally and only shared via the user-initiated
+    OS share sheet.
   - The only third-party SDK is Google Mobile Ads, which Google uses for
     ad serving. Ad requests use `requestNonPersonalizedAdsOnly: true` by
     default in this build.
@@ -120,5 +154,21 @@ OWNER / PUBLISHER
   Owner            iamdharmiltrivedi (Expo account)
   Developer        Dharmil Trivedi
   Contact          dharmil@superscout.ai
+
+------------------------------------------------------------------------------
+RECENT CHANGES
+------------------------------------------------------------------------------
+
+  2026-05-21
+    - Bottom tab bar now uses useSafeAreaInsets() so labels no longer overlap
+      the Android gesture / navigation bar on devices with system bottom
+      insets (AppNavigator.js).
+    - Documents screen no longer crashes with "getInfoAsync is deprecated".
+      ReceiptService and BackupService now import from
+      `expo-file-system/legacy` (SDK 54 compatibility).
+    - Vault unlock no longer triggers the native Android device-credential
+      popup. The biometric auto-prompt and on-keypad biometric button have
+      been removed from VaultUnlockScreen - the in-app 4-digit PIN is the
+      only unlock path.
 
 ==============================================================================
