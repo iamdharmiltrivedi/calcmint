@@ -20,7 +20,8 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#0B5D3B"
       },
-      "package": "com.dharmil.calcmint"
+      "package": "com.dharmil.calcmint",
+      "versionCode": 6
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -53,7 +54,9 @@
           "faceIDPermission": "CalcMint uses Face ID to unlock your private vault."
         }
       ],
-      "@react-native-community/datetimepicker"
+      "@react-native-community/datetimepicker",
+      "expo-secure-store",
+      "expo-font"
     ],
     "extra": {
       "eas": {

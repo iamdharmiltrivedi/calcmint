@@ -27,7 +27,7 @@
       <dict>
         <key>CFBundleURLSchemes</key>
         <array>
-          <string>com.dharmil.financecalculator</string>
+          <string>com.dharmil.calcmint</string>
         </array>
       </dict>
     </array>

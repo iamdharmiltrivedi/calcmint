@@ -59,3 +59,5 @@ gcp-key*.json
 # ── Logs / coverage ──────────────────────────────────────────────────────────
 *.log
 coverage/
+/android
+/ios

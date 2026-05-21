@@ -1,9 +1,9 @@
 import React from 'react';
-import { Platform } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { COLORS } from '../constants/colors';
 
 // Tab screens
@@ -105,7 +105,13 @@ const TAB_ICONS = {
   More:      { active: 'ellipsis-horizontal-circle', inactive: 'ellipsis-horizontal-circle-outline' },
 };
 
-const MainTabs = () => (
+const MainTabs = () => {
+  const insets = useSafeAreaInsets();
+  const bottomInset = insets.bottom;
+  const basePadding = 6;
+  const baseHeight = 60;
+
+  return (
   <Tab.Navigator
     sceneContainerStyle={{ backgroundColor: COLORS.background }}
     screenOptions={({ route }) => ({
@@ -127,9 +133,9 @@ const MainTabs = () => (
         backgroundColor: '#fff',
         borderTopWidth: 1,
         borderTopColor: COLORS.border,
-        paddingBottom: Platform.OS === 'ios' ? 20 : 6,
-        paddingTop: 6,
-        height: Platform.OS === 'ios' ? 82 : 60,
+        paddingBottom: basePadding + bottomInset,
+        paddingTop: basePadding,
+        height: baseHeight + bottomInset,
       },
       tabBarLabelStyle: { fontSize: 11, fontWeight: '600' },
     })}
@@ -140,7 +146,8 @@ const MainTabs = () => (
     <Tab.Screen name="Vault"     component={VaultStack} />
     <Tab.Screen name="More"      component={MoreStack} />
   </Tab.Navigator>
-);
+  );
+};
 
 // Root stack hosts the tab navigator plus all screens that need to be
 // reachable from more than one tab. Registering each name once here

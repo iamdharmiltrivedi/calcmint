@@ -9,10 +9,10 @@
 /* Begin PBXBuildFile section */
 		13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB51A68108700A75B9A /* Images.xcassets */; };
 		3E461D99554A48A4959DE609 /* SplashScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */; };
-		4E28CB0525ED3305E115B2A8 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = C64FCBADC4743CBF02C2DB7F /* PrivacyInfo.xcprivacy */; };
-		966DEA4644FC6F319CB43B14 /* libPods-CalcMint.a in Frameworks */ = {isa = PBXBuildFile; fileRef = C938B85688DDA51D5E4DCC0A /* libPods-CalcMint.a */; };
-		9FDD413FDD7945E126853323 /* ExpoModulesProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = F85889E3AF29C4FDF91B2A54 /* ExpoModulesProvider.swift */; };
+		49995422DE13B74EAA483654 /* ExpoModulesProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 83025F7EC505C5420A139AC3 /* ExpoModulesProvider.swift */; };
 		BB2F792D24A3F905000567C9 /* Expo.plist in Resources */ = {isa = PBXBuildFile; fileRef = BB2F792C24A3F905000567C9 /* Expo.plist */; };
+		DDDF81097D751A4BB9B30708 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 140D22BD59087AA9B686E9EA /* PrivacyInfo.xcprivacy */; };
+		E1064254A258406151B83303 /* libPods-CalcMint.a in Frameworks */ = {isa = PBXBuildFile; fileRef = E7A84970ADDAC047112FCE0F /* libPods-CalcMint.a */; };
 		F11748422D0307B40044C1D9 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = F11748412D0307B40044C1D9 /* AppDelegate.swift */; };
 /* End PBXBuildFile section */
 
@@ -20,16 +20,16 @@
 		13B07F961A680F5B00A75B9A /* CalcMint.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = CalcMint.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		13B07FB51A68108700A75B9A /* Images.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; name = Images.xcassets; path = CalcMint/Images.xcassets; sourceTree = "<group>"; };
 		13B07FB61A68108700A75B9A /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = Info.plist; path = CalcMint/Info.plist; sourceTree = "<group>"; };
+		140D22BD59087AA9B686E9EA /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; includeInIndex = 1; name = PrivacyInfo.xcprivacy; path = CalcMint/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		183D4473A66ED82E768E6C62 /* Pods-CalcMint.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-CalcMint.debug.xcconfig"; path = "Target Support Files/Pods-CalcMint/Pods-CalcMint.debug.xcconfig"; sourceTree = "<group>"; };
+		83025F7EC505C5420A139AC3 /* ExpoModulesProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ExpoModulesProvider.swift; path = "Pods/Target Support Files/Pods-CalcMint/ExpoModulesProvider.swift"; sourceTree = "<group>"; };
 		AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; name = SplashScreen.storyboard; path = CalcMint/SplashScreen.storyboard; sourceTree = "<group>"; };
 		BB2F792C24A3F905000567C9 /* Expo.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = Expo.plist; sourceTree = "<group>"; };
-		C64FCBADC4743CBF02C2DB7F /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; includeInIndex = 1; name = PrivacyInfo.xcprivacy; path = CalcMint/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
-		C938B85688DDA51D5E4DCC0A /* libPods-CalcMint.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-CalcMint.a"; sourceTree = BUILT_PRODUCTS_DIR; };
-		D337A172F4438DE2C9F4FFD8 /* Pods-CalcMint.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-CalcMint.debug.xcconfig"; path = "Target Support Files/Pods-CalcMint/Pods-CalcMint.debug.xcconfig"; sourceTree = "<group>"; };
-		D7F17BD4CCF419458E1E9F97 /* Pods-CalcMint.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-CalcMint.release.xcconfig"; path = "Target Support Files/Pods-CalcMint/Pods-CalcMint.release.xcconfig"; sourceTree = "<group>"; };
+		E7A84970ADDAC047112FCE0F /* libPods-CalcMint.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-CalcMint.a"; sourceTree = BUILT_PRODUCTS_DIR; };
 		ED297162215061F000B7C4FE /* JavaScriptCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = JavaScriptCore.framework; path = System/Library/Frameworks/JavaScriptCore.framework; sourceTree = SDKROOT; };
 		F11748412D0307B40044C1D9 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AppDelegate.swift; path = CalcMint/AppDelegate.swift; sourceTree = "<group>"; };
 		F11748442D0722820044C1D9 /* CalcMint-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = "CalcMint-Bridging-Header.h"; path = "CalcMint/CalcMint-Bridging-Header.h"; sourceTree = "<group>"; };
-		F85889E3AF29C4FDF91B2A54 /* ExpoModulesProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ExpoModulesProvider.swift; path = "Pods/Target Support Files/Pods-CalcMint/ExpoModulesProvider.swift"; sourceTree = "<group>"; };
+		F50350399B6D25877E144FC6 /* Pods-CalcMint.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-CalcMint.release.xcconfig"; path = "Target Support Files/Pods-CalcMint/Pods-CalcMint.release.xcconfig"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -37,21 +37,13 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				966DEA4644FC6F319CB43B14 /* libPods-CalcMint.a in Frameworks */,
+				E1064254A258406151B83303 /* libPods-CalcMint.a in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
-		0F627DA55E20ADAB78C97B86 /* CalcMint */ = {
-			isa = PBXGroup;
-			children = (
-				F85889E3AF29C4FDF91B2A54 /* ExpoModulesProvider.swift */,
-			);
-			name = CalcMint;
-			sourceTree = "<group>";
-		};
 		13B07FAE1A68108700A75B9A /* CalcMint */ = {
 			isa = PBXGroup;
 			children = (
@@ -61,7 +53,7 @@
 				13B07FB51A68108700A75B9A /* Images.xcassets */,
 				13B07FB61A68108700A75B9A /* Info.plist */,
 				AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */,
-				C64FCBADC4743CBF02C2DB7F /* PrivacyInfo.xcprivacy */,
+				140D22BD59087AA9B686E9EA /* PrivacyInfo.xcprivacy */,
 			);
 			name = CalcMint;
 			sourceTree = "<group>";
@@ -70,19 +62,17 @@
 			isa = PBXGroup;
 			children = (
 				ED297162215061F000B7C4FE /* JavaScriptCore.framework */,
-				C938B85688DDA51D5E4DCC0A /* libPods-CalcMint.a */,
+				E7A84970ADDAC047112FCE0F /* libPods-CalcMint.a */,
 			);
 			name = Frameworks;
 			sourceTree = "<group>";
 		};
-		56295F18005D74C29F86D8F9 /* Pods */ = {
+		4C10D533FE0A21AC82746B61 /* CalcMint */ = {
 			isa = PBXGroup;
 			children = (
-				D337A172F4438DE2C9F4FFD8 /* Pods-CalcMint.debug.xcconfig */,
-				D7F17BD4CCF419458E1E9F97 /* Pods-CalcMint.release.xcconfig */,
+				83025F7EC505C5420A139AC3 /* ExpoModulesProvider.swift */,
 			);
-			name = Pods;
-			path = Pods;
+			name = CalcMint;
 			sourceTree = "<group>";
 		};
 		832341AE1AAA6A7D00B99B32 /* Libraries */ = {
@@ -99,8 +89,8 @@
 				832341AE1AAA6A7D00B99B32 /* Libraries */,
 				83CBBA001A601CBA00E9B192 /* Products */,
 				2D16E6871FA4F8E400B85C8A /* Frameworks */,
-				56295F18005D74C29F86D8F9 /* Pods */,
-				AEE9B54777149F0828787BD4 /* ExpoModulesProviders */,
+				C75E3C673AA3C83597A1E4E3 /* Pods */,
+				B2F5C636B395B817561ACBC4 /* ExpoModulesProviders */,
 			);
 			indentWidth = 2;
 			sourceTree = "<group>";
@@ -115,10 +105,10 @@
 			name = Products;
 			sourceTree = "<group>";
 		};
-		AEE9B54777149F0828787BD4 /* ExpoModulesProviders */ = {
+		B2F5C636B395B817561ACBC4 /* ExpoModulesProviders */ = {
 			isa = PBXGroup;
 			children = (
-				0F627DA55E20ADAB78C97B86 /* CalcMint */,
+				4C10D533FE0A21AC82746B61 /* CalcMint */,
 			);
 			name = ExpoModulesProviders;
 			sourceTree = "<group>";
@@ -132,6 +122,16 @@
 			path = CalcMint/Supporting;
 			sourceTree = "<group>";
 		};
+		C75E3C673AA3C83597A1E4E3 /* Pods */ = {
+			isa = PBXGroup;
+			children = (
+				183D4473A66ED82E768E6C62 /* Pods-CalcMint.debug.xcconfig */,
+				F50350399B6D25877E144FC6 /* Pods-CalcMint.release.xcconfig */,
+			);
+			name = Pods;
+			path = Pods;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
@@ -140,14 +140,14 @@
 			buildConfigurationList = 13B07F931A680F5B00A75B9A /* Build configuration list for PBXNativeTarget "CalcMint" */;
 			buildPhases = (
 				08A4A3CD28434E44B6B9DE2E /* [CP] Check Pods Manifest.lock */,
-				6F83CAE6CF95795F12B48C14 /* [Expo] Configure project */,
+				BCBBBC5C44525F2549D7BA64 /* [Expo] Configure project */,
 				13B07F871A680F5B00A75B9A /* Sources */,
 				13B07F8C1A680F5B00A75B9A /* Frameworks */,
 				13B07F8E1A680F5B00A75B9A /* Resources */,
 				00DD1BFF1BD5951E006B06BC /* Bundle React Native code and images */,
 				800E24972A6A228C8D4807E9 /* [CP] Copy Pods Resources */,
-				1B56C8EE4F8204870853FE38 /* [CP] Embed Pods Frameworks */,
-				E459E07908E5EF7F2C04F3BC /* [CP-User] [RNGoogleMobileAds] Configuration */,
+				53779C92304D4EC964A1D29E /* [CP] Embed Pods Frameworks */,
+				CACC82EDE2518C2649DCF366 /* [CP-User] [RNGoogleMobileAds] Configuration */,
 			);
 			buildRules = (
 			);
@@ -197,7 +197,7 @@
 				BB2F792D24A3F905000567C9 /* Expo.plist in Resources */,
 				13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */,
 				3E461D99554A48A4959DE609 /* SplashScreen.storyboard in Resources */,
-				4E28CB0525ED3305E115B2A8 /* PrivacyInfo.xcprivacy in Resources */,
+				DDDF81097D751A4BB9B30708 /* PrivacyInfo.xcprivacy in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -243,7 +243,7 @@
 			shellScript = "diff \"${PODS_PODFILE_DIR_PATH}/Podfile.lock\" \"${PODS_ROOT}/Manifest.lock\" > /dev/null\nif [ $? != 0 ] ; then\n    # print error to STDERR\n    echo \"error: The sandbox is not in sync with the Podfile.lock. Run 'pod install' or update your CocoaPods installation.\" >&2\n    exit 1\nfi\n# This output is used by Xcode 'outputs' to avoid re-running this script phase.\necho \"SUCCESS\" > \"${SCRIPT_OUTPUT_FILE_0}\"\n";
 			showEnvVarsInLog = 0;
 		};
-		1B56C8EE4F8204870853FE38 /* [CP] Embed Pods Frameworks */ = {
+		53779C92304D4EC964A1D29E /* [CP] Embed Pods Frameworks */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -264,30 +264,6 @@
 			shellPath = /bin/sh;
 			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-CalcMint/Pods-CalcMint-frameworks.sh\"\n";
 			showEnvVarsInLog = 0;
-		};
-		6F83CAE6CF95795F12B48C14 /* [Expo] Configure project */ = {
-			isa = PBXShellScriptBuildPhase;
-			alwaysOutOfDate = 1;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputFileListPaths = (
-			);
-			inputPaths = (
-				"$(SRCROOT)/.xcode.env",
-				"$(SRCROOT)/.xcode.env.local",
-				"$(SRCROOT)/CalcMint/CalcMint.entitlements",
-				"$(SRCROOT)/Pods/Target Support Files/Pods-CalcMint/expo-configure-project.sh",
-			);
-			name = "[Expo] Configure project";
-			outputFileListPaths = (
-			);
-			outputPaths = (
-				"$(SRCROOT)/Pods/Target Support Files/Pods-CalcMint/ExpoModulesProvider.swift",
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "# This script configures Expo modules and generates the modules provider file.\nbash -l -c \"./Pods/Target\\ Support\\ Files/Pods-CalcMint/expo-configure-project.sh\"\n";
 		};
 		800E24972A6A228C8D4807E9 /* [CP] Copy Pods Resources */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -353,7 +329,31 @@
 			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-CalcMint/Pods-CalcMint-resources.sh\"\n";
 			showEnvVarsInLog = 0;
 		};
-		E459E07908E5EF7F2C04F3BC /* [CP-User] [RNGoogleMobileAds] Configuration */ = {
+		BCBBBC5C44525F2549D7BA64 /* [Expo] Configure project */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"$(SRCROOT)/.xcode.env",
+				"$(SRCROOT)/.xcode.env.local",
+				"$(SRCROOT)/CalcMint/CalcMint.entitlements",
+				"$(SRCROOT)/Pods/Target Support Files/Pods-CalcMint/expo-configure-project.sh",
+			);
+			name = "[Expo] Configure project";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+				"$(SRCROOT)/Pods/Target Support Files/Pods-CalcMint/ExpoModulesProvider.swift",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "# This script configures Expo modules and generates the modules provider file.\nbash -l -c \"./Pods/Target\\ Support\\ Files/Pods-CalcMint/expo-configure-project.sh\"\n";
+		};
+		CACC82EDE2518C2649DCF366 /* [CP-User] [RNGoogleMobileAds] Configuration */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -374,7 +374,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				F11748422D0307B40044C1D9 /* AppDelegate.swift in Sources */,
-				9FDD413FDD7945E126853323 /* ExpoModulesProvider.swift in Sources */,
+				49995422DE13B74EAA483654 /* ExpoModulesProvider.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -383,7 +383,7 @@
 /* Begin XCBuildConfiguration section */
 		13B07F941A680F5B00A75B9A /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = D337A172F4438DE2C9F4FFD8 /* Pods-CalcMint.debug.xcconfig */;
+			baseConfigurationReference = 183D4473A66ED82E768E6C62 /* Pods-CalcMint.debug.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
@@ -407,7 +407,7 @@
 					"-lc++",
 				);
 				OTHER_SWIFT_FLAGS = "$(inherited) -D EXPO_CONFIGURATION_DEBUG";
-				PRODUCT_BUNDLE_IDENTIFIER = com.dharmil.financecalculator;
+				PRODUCT_BUNDLE_IDENTIFIER = com.dharmil.calcmint;
 				PRODUCT_NAME = CalcMint;
 				SWIFT_OBJC_BRIDGING_HEADER = "CalcMint/CalcMint-Bridging-Header.h";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
@@ -419,7 +419,7 @@
 		};
 		13B07F951A680F5B00A75B9A /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = D7F17BD4CCF419458E1E9F97 /* Pods-CalcMint.release.xcconfig */;
+			baseConfigurationReference = F50350399B6D25877E144FC6 /* Pods-CalcMint.release.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
@@ -438,7 +438,7 @@
 					"-lc++",
 				);
 				OTHER_SWIFT_FLAGS = "$(inherited) -D EXPO_CONFIGURATION_RELEASE";
-				PRODUCT_BUNDLE_IDENTIFIER = com.dharmil.financecalculator;
+				PRODUCT_BUNDLE_IDENTIFIER = com.dharmil.calcmint;
 				PRODUCT_NAME = CalcMint;
 				SWIFT_OBJC_BRIDGING_HEADER = "CalcMint/CalcMint-Bridging-Header.h";
 				SWIFT_VERSION = 5.0;
