@@ -27,6 +27,22 @@ export const COLORS = {
   warning: '#D97A3A',
   error:   '#C44A6A',
 
+  // Markets / P&L semantic (used by ported Stock Lens screens)
+  positive: '#0B5D3B',          // emerald — positive values + buy
+  positiveSoft: '#E8F1EC',
+  negative: '#E24B4A',          // red — negative values + sell
+  negativeSoft: '#FCE7E6',
+  buy:  '#0B5D3B',
+  hold: '#EF9F27',              // amber — hold, warning, neutral trend
+  holdSoft: '#FDF1DA',
+  sell: '#E24B4A',
+  sentimentPositive: '#0B5D3B',
+  sentimentNeutral:  '#6B7B72',
+  sentimentNegative: '#E24B4A',
+
+  // Hairline (0.5px) border for cards per spec
+  hairline: '#E5E5E0',
+
   // Legacy aliases (kept so other files still resolve)
   secondary: '#218A52',
   accent:    '#C9A24A',
@@ -85,4 +101,26 @@ export const FONTS = Platform.select({
 export const MONO_STYLE = {
   fontFamily: FONTS.mono,
   fontVariant: ['tabular-nums'],
+};
+
+// ── Type scale per redesign spec ───────────────────────────────────────
+// Use TYPE.headline / TYPE.body / TYPE.label / TYPE.caption everywhere
+// new code is written. Existing screens keep their inline sizes; this is
+// the source of truth for any new component.
+export const TYPE = {
+  headline: { fontSize: 24, fontWeight: '800', letterSpacing: -0.4, color: COLORS.text },
+  body:     { fontSize: 16, fontWeight: '600', color: COLORS.text },
+  label:    { fontSize: 13, fontWeight: '700', color: COLORS.text },
+  caption:  { fontSize: 11, fontWeight: '600', color: COLORS.subtext },
+  // 11px uppercase section header — letter-spacing 0.06em ≈ 0.66px
+  section:  { fontSize: 11, fontWeight: '800', letterSpacing: 0.66, color: '#888888', textTransform: 'uppercase' },
+};
+
+// ── Card token per spec: white, 12px radius, 0.5px hairline, 16px pad ─
+export const CARD = {
+  backgroundColor: COLORS.card,
+  borderRadius: 12,
+  borderWidth: 0.5,
+  borderColor: COLORS.hairline,
+  padding: 16,
 };

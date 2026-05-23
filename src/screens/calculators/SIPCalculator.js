@@ -23,10 +23,11 @@ const num = (s, f = 0) => {
   return Number.isFinite(n) ? n : f;
 };
 
-export default function SIPCalculator({ navigation }) {
+export default function SIPCalculator({ navigation, route }) {
   const [monthly, setMonthly] = useState('15000');
   const [rate,    setRate]    = useState('12');
   const [years,   setYears]   = useState('15');
+  const [prefill, setPrefill] = useState(null);  // { source: 'fund'|'surplus', label: '...' }
 
   useEffect(() => {
     StorageService.getCalculatorInputs(CALC_ID).then((s) => {
@@ -37,6 +38,21 @@ export default function SIPCalculator({ navigation }) {
       }
     });
   }, []);
+
+  // Cross-app prefills: from a Stock Lens MF (rate = CAGR) or the
+  // dashboard "available to invest" surplus button (monthly amount).
+  useEffect(() => {
+    const fund = route?.params?.fund;
+    const prefillAmount = route?.params?.prefillAmount;
+    if (fund && typeof fund.cagr === 'number') {
+      setRate(String(Math.round(fund.cagr * 10) / 10));
+      setPrefill({ source: 'fund', label: `Rate filled from ${fund.name || fund.symbol}` });
+    }
+    if (typeof prefillAmount === 'number' && prefillAmount > 0) {
+      setMonthly(String(Math.round(prefillAmount)));
+      setPrefill((p) => p || { source: 'surplus', label: `Investing your monthly surplus of ₹${prefillAmount.toLocaleString('en-IN')}` });
+    }
+  }, [route?.params?.fund, route?.params?.prefillAmount]);
 
   useEffect(() => {
     StorageService.saveCalculatorInputs(CALC_ID, { monthly, rate, years });
@@ -68,6 +84,12 @@ export default function SIPCalculator({ navigation }) {
 
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+          {prefill && (
+            <View style={styles.prefillBanner}>
+              <Ionicons name="link" size={13} color={ACCENT} />
+              <Text style={styles.prefillText}>{prefill.label}</Text>
+            </View>
+          )}
           <View style={styles.card}>
             <InputField
               label="Monthly Investment"
@@ -145,6 +167,13 @@ function SmallStat({ label, value, color = COLORS.text }) {
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: COLORS.background },
   body: { padding: 18, paddingBottom: 40 },
+
+  prefillBanner: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    backgroundColor: SOFT, paddingHorizontal: 12, paddingVertical: 8,
+    borderRadius: 10, marginBottom: 12,
+  },
+  prefillText: { fontSize: 11.5, color: ACCENT, fontWeight: '800' },
 
   card: {
     backgroundColor: COLORS.card, borderRadius: 18, padding: 14,

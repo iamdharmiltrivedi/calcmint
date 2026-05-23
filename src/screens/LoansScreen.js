@@ -10,6 +10,7 @@ import StorageService from '../services/StorageService';
 import NotificationService from '../services/NotificationService';
 import { summarizeLoan, totalMonthlyObligation } from '../utils/loans';
 import { formatINR, formatINRFull, formatMonths } from '../utils/formatters';
+import EmptyState from '../components/ui/EmptyState';
 
 export default function LoansScreen({ navigation }) {
   const [loans, setLoans] = useState([]);
@@ -82,20 +83,13 @@ export default function LoansScreen({ navigation }) {
         </LinearGradient>
 
         {loans.length === 0 ? (
-          <View style={styles.empty}>
-            <Text style={styles.emptyIcon}>🏦</Text>
-            <Text style={styles.emptyTitle}>No loans yet</Text>
-            <Text style={styles.emptyHint}>
-              Add your loans to see EMI countdowns and get a reminder on each due date.
-            </Text>
-            <TouchableOpacity
-              style={styles.addCta}
-              onPress={() => navigation.navigate('LoanEdit', {})}
-            >
-              <Ionicons name="add" size={18} color="#fff" />
-              <Text style={styles.addCtaText}>Add your first loan</Text>
-            </TouchableOpacity>
-          </View>
+          <EmptyState
+            emoji="🏦"
+            title="No loans yet"
+            message="Add your loans to see EMI countdowns and get a reminder on each due date."
+            ctaLabel="Add your first loan"
+            onCtaPress={() => navigation.navigate('LoanEdit', {})}
+          />
         ) : (
           <>
             <Text style={styles.sectionTitle}>Upcoming</Text>

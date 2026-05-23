@@ -19,6 +19,11 @@ async function ensureAndroidChannel() {
     importance: Notifications.AndroidImportance.DEFAULT,
     vibrationPattern: [0, 250, 250, 250],
   });
+  await Notifications.setNotificationChannelAsync('market', {
+    name: 'Market alerts',
+    importance: Notifications.AndroidImportance.HIGH,
+    vibrationPattern: [0, 250, 250, 250],
+  });
 }
 
 const NotificationService = {
@@ -85,6 +90,53 @@ const NotificationService = {
 
   async cancelMany(ids = []) {
     for (const id of ids) await NotificationService.cancel(id);
+  },
+
+  // ── Market alerts (Stock Lens) ─────────────────────────────────────
+  // Schedule a one-off price-alert notification when an external
+  // price-check tick has already determined the alert should fire.
+  // Routing through the same service keeps EMI reminders + market
+  // alerts under one permission grant and one platform handler.
+  async fireStockAlert({ symbol, name, message, data = {} }) {
+    try {
+      const ok = await NotificationService.ensurePermission();
+      if (!ok) return null;
+      return await Notifications.scheduleNotificationAsync({
+        content: {
+          title: `${symbol} alert`,
+          body: message || `${name || symbol} hit your watch level.`,
+          data: { kind: 'market', symbol, ...data },
+          sound: false,
+        },
+        trigger: { seconds: 1, channelId: 'market' },
+      });
+    } catch (e) {
+      console.warn('[Notifications] fireStockAlert', e);
+      return null;
+    }
+  },
+
+  // Daily price-check reminder for a watched symbol (light touch — the
+  // actual price-vs-threshold compare is done by the caller).
+  async scheduleDailyPriceCheck({ symbol, hour = 10, minute = 0 }) {
+    try {
+      const ok = await NotificationService.ensurePermission();
+      if (!ok) return null;
+      const dailyType =
+        Notifications.SchedulableTriggerInputTypes?.DAILY ?? 'daily';
+      return await Notifications.scheduleNotificationAsync({
+        content: {
+          title: `Check ${symbol}`,
+          body: `Daily price check for ${symbol}`,
+          data: { kind: 'market', symbol },
+          sound: false,
+        },
+        trigger: { type: dailyType, hour, minute, channelId: 'market' },
+      });
+    } catch (e) {
+      console.warn('[Notifications] scheduleDailyPriceCheck', e);
+      return null;
+    }
   },
 };
 

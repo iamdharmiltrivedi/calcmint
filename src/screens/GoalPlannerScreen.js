@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View, Text, ScrollView, StyleSheet, TouchableOpacity,
   TextInput, Modal, Alert, KeyboardAvoidingView, Platform,
@@ -6,12 +6,13 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { COLORS } from '../constants/colors';
+import { COLORS, MONO_STYLE } from '../constants/colors';
 import { useApp } from '../context/AppContext';
 import AdBanner from '../components/AdBanner';
 import BrandHeader from '../components/BrandHeader';
 import { calculateGoalSIP } from '../utils/calculations';
 import { formatINR, formatINRFull, formatYears } from '../utils/formatters';
+import { usePortfolioStore } from '../store/portfolioStore';
 
 const EMPTY_FORM = { name: '', goalAmount: '', years: '', rate: '12' };
 
@@ -20,6 +21,16 @@ export default function GoalPlannerScreen() {
   const [modalVisible, setModalVisible] = useState(false);
   const [form, setForm]   = useState(EMPTY_FORM);
   const [errors, setErrors] = useState({});
+  const portfolioHoldings = usePortfolioStore((s) => s.holdings);
+  const loadPortfolio     = usePortfolioStore((s) => s.load);
+  const portfolioSummary  = usePortfolioStore((s) => s.getSummary());
+
+  useEffect(() => { loadPortfolio(); }, [loadPortfolio]);
+
+  const goalTargetTotal = goals.reduce((s, g) => s + (g.targetAmount || 0), 0);
+  const coveragePct = goalTargetTotal > 0
+    ? Math.min(100, (portfolioSummary.totalCurrent / goalTargetTotal) * 100)
+    : 0;
 
   const setField = (key) => (val) => setForm((p) => ({ ...p, [key]: val }));
 
@@ -93,6 +104,20 @@ export default function GoalPlannerScreen() {
       </LinearGradient>
 
       <ScrollView contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>
+        {portfolioHoldings.length > 0 && goalTargetTotal > 0 && (
+          <View style={styles.portStrip}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.portLabel}>PORTFOLIO COVERAGE</Text>
+              <Text style={styles.portValue}>
+                {formatINR(portfolioSummary.totalCurrent)} <Text style={styles.portSub}>of {formatINR(goalTargetTotal)}</Text>
+              </Text>
+              <View style={styles.portTrack}>
+                <View style={[styles.portFill, { width: `${coveragePct}%` }]} />
+              </View>
+              <Text style={styles.portMeta}>{coveragePct.toFixed(0)}% of total goals already invested</Text>
+            </View>
+          </View>
+        )}
         {goals.length === 0 ? (
           <View style={styles.empty}>
             <Text style={styles.emptyIcon}>🎯</Text>
@@ -272,6 +297,18 @@ const styles = StyleSheet.create({
   },
 
   body: { padding: 16, paddingBottom: 32 },
+
+  portStrip: {
+    backgroundColor: COLORS.card, borderRadius: 14, padding: 14,
+    borderWidth: 1, borderColor: COLORS.border, marginBottom: 14,
+  },
+  portLabel: { fontSize: 10, fontWeight: '800', color: COLORS.primary, letterSpacing: 0.5 },
+  portValue: { ...MONO_STYLE, fontSize: 16, fontWeight: '800', color: COLORS.text, marginTop: 4 },
+  portSub:   { fontSize: 12, color: COLORS.subtext, fontWeight: '600' },
+  portTrack: { height: 6, backgroundColor: '#E8EBE7', borderRadius: 3, marginTop: 10, overflow: 'hidden' },
+  portFill:  { height: 6, backgroundColor: COLORS.primary, borderRadius: 3 },
+  portMeta:  { fontSize: 11, color: COLORS.subtext, fontWeight: '600', marginTop: 6 },
+
 
   empty: { alignItems: 'center', paddingVertical: 60 },
   emptyIcon: { fontSize: 52, marginBottom: 14 },

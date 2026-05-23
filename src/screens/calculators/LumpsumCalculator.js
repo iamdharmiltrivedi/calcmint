@@ -20,17 +20,28 @@ const ACCENT  = '#FF6D00';
 
 const DEFAULTS = { principal: '', rate: '12', years: '10' };
 
-export default function LumpsumCalculator({ navigation }) {
+export default function LumpsumCalculator({ navigation, route }) {
   const [inputs, setInputs]   = useState(DEFAULTS);
   const [errors, setErrors]   = useState({});
   const [result, setResult]   = useState(null);
   const [loading, setLoading] = useState(false);
+  const [prefill, setPrefill] = useState(null);
   const fadeAnim  = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(30)).current;
 
   useEffect(() => {
     StorageService.getCalculatorInputs(CALC_ID).then((s) => { if (s) setInputs(s); });
   }, []);
+
+  // Cross-app prefill: when launched from a Stock Lens MF "What if I
+  // had invested ₹X" flow, pre-fill rate (CAGR) and source label.
+  useEffect(() => {
+    const fund = route?.params?.fund;
+    if (fund && typeof fund.cagr === 'number') {
+      setInputs((p) => ({ ...p, rate: String(Math.round(fund.cagr * 10) / 10) }));
+      setPrefill({ label: `Rate from ${fund.name || fund.symbol} CAGR` });
+    }
+  }, [route?.params?.fund]);
 
   const set = (key) => (val) => setInputs((p) => ({ ...p, [key]: val }));
 
@@ -85,6 +96,12 @@ export default function LumpsumCalculator({ navigation }) {
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
 
+          {prefill && (
+            <View style={styles.prefillBanner}>
+              <Ionicons name="link" size={13} color={ACCENT} />
+              <Text style={styles.prefillText}>{prefill.label}</Text>
+            </View>
+          )}
           <View style={styles.card}>
             <Text style={styles.cardTitle}>Investment Details</Text>
             <InputField
@@ -164,6 +181,12 @@ const styles = StyleSheet.create({
   headerTitle: { fontSize: 17, fontWeight: '700', color: COLORS.text },
   badge: { width: 34, height: 34, borderRadius: 17, justifyContent: 'center', alignItems: 'center' },
   body: { padding: 16, paddingBottom: 40 },
+  prefillBanner: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    backgroundColor: ACCENT + '18', paddingHorizontal: 12, paddingVertical: 8,
+    borderRadius: 10, marginBottom: 12,
+  },
+  prefillText: { fontSize: 11.5, color: ACCENT, fontWeight: '800' },
   card: {
     backgroundColor: COLORS.card, borderRadius: 16, padding: 16, marginBottom: 14, ...COLORS.shadow,
   },

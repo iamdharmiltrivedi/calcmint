@@ -29,10 +29,12 @@ export default function SettingsScreen({ navigation }) {
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.iconBtn}>
-          <Ionicons name="arrow-back" size={20} color={COLORS.text} />
-        </TouchableOpacity>
-        <Text style={styles.title}>Settings</Text>
+        {navigation.canGoBack() ? (
+          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.iconBtn}>
+            <Ionicons name="arrow-back" size={20} color={COLORS.text} />
+          </TouchableOpacity>
+        ) : <View style={{ width: 38 }} />}
+        <Text style={styles.title}>More</Text>
         <View style={{ width: 38 }} />
       </View>
 
@@ -48,19 +50,29 @@ export default function SettingsScreen({ navigation }) {
           icon="key-outline"
           title="Personal vault"
           subtitle="Encrypted IDs, policies, FDs, SIPs"
-          onPress={() => navigation.navigate('MainTabs', { screen: 'Vault' })}
+          onPress={() => navigation.navigate('Vault')}
         />
 
         <SectionLabel text="Tools" />
         <Row
           icon="grid-outline"
           title="All calculators"
-          onPress={() => navigation.navigate('MainTabs', { screen: 'Home' })}
+          onPress={() => navigation.navigate('MainTabs', { screen: 'Tools' })}
+        />
+        <Row
+          icon="trending-up-outline"
+          title="Markets"
+          subtitle="Stocks, MFs, IPOs, AI analysis"
+          onPress={() => navigation.navigate('MainTabs', { screen: 'Markets' })}
         />
         <Row icon="card-outline" title="Subscriptions" onPress={() => navigation.navigate('Subscriptions')} />
         <Row icon="cash-outline" title="Loans & EMI reminders" onPress={() => navigation.navigate('Loans')} />
         <Row icon="people-outline" title="Split expenses" onPress={() => navigation.navigate('SplitGroups')} />
         <Row icon="document-text-outline" title="Documents" onPress={() => navigation.navigate('Receipts')} />
+
+        <SectionLabel text="Learn" />
+        <Row icon="school-outline"        title="Courses"          subtitle="Bite-sized finance lessons" onPress={() => navigation.navigate('Courses')} />
+        <Row icon="library-outline"       title="Guides & schemes" subtitle="PPF, ELSS, NPS, govt schemes" onPress={() => navigation.navigate('Guides')} />
 
         <SectionLabel text="Data" />
         <Row
