@@ -37,7 +37,7 @@ import RetirementCalculator     from '../screens/calculators/RetirementCalculato
 import UnitConverter            from '../screens/calculators/UnitConverter';
 import InvoiceGenerator         from '../screens/calculators/InvoiceGenerator';
 
-// ── Finance screens ───────────────────────────────────────────────────
+// ── Money screens ─────────────────────────────────────────────────────
 import ExpenseAnalysisScreen    from '../screens/ExpenseAnalysisScreen';
 import LoansScreen              from '../screens/LoansScreen';
 import LoanEditScreen           from '../screens/LoanEditScreen';
@@ -62,6 +62,9 @@ import VaultScreen              from '../screens/VaultScreen';
 import VaultEntryEditScreen     from '../screens/VaultEntryEditScreen';
 import ReceiptsScreen           from '../screens/ReceiptsScreen';
 import ReceiptDetailScreen      from '../screens/ReceiptDetailScreen';
+import TripsScreen              from '../screens/TripsScreen';
+import TripDetailScreen         from '../screens/TripDetailScreen';
+import AddTripScreen            from '../screens/AddTripScreen';
 import NotificationsScreen      from '../screens/NotificationsScreen';
 import AIAssistantScreen        from '../screens/AIAssistantScreen';
 import CoursesScreen            from '../screens/CoursesScreen';
@@ -107,6 +110,10 @@ const HomeTabStack = () => (
 );
 
 // ── Tab 2 — Markets ───────────────────────────────────────────────────
+// Calculators are re-registered here so cross-context links (e.g. the
+// "Calculate min investment" button on IPO cards, "SIP from this fund"
+// on a holding) push within the Markets stack — that way back returns
+// to the originating page instead of dropping the user on Tools.
 const MarketsStack = () => (
   <Stack.Navigator screenOptions={stackOptions}>
     <Stack.Screen name="MarketsHomeScreen" component={MarketsHomeScreen} />
@@ -116,6 +123,10 @@ const MarketsStack = () => (
     <Stack.Screen name="PortfolioScreen"   component={PortfolioScreen} />
     <Stack.Screen name="AddHoldingScreen"  component={AddEditStockScreen} options={modalOptions} />
     <Stack.Screen name="MarketNewsScreen"  component={NewsFeedScreen} />
+
+    {/* Calculators reachable from Markets context. */}
+    <Stack.Screen name="SIPCalculator"     component={SIPCalculator} />
+    <Stack.Screen name="LumpsumCalculator" component={LumpsumCalculator} />
 
     {/* Aliases so existing screens that navigate without the
         "Screen" suffix keep working. */}
@@ -152,8 +163,8 @@ const ToolsTabStack = () => (
   </Stack.Navigator>
 );
 
-// ── Tab 4 — Finance ───────────────────────────────────────────────────
-const FinanceTabStack = () => (
+// ── Tab 4 — Money ─────────────────────────────────────────────────────
+const MoneyTabStack = () => (
   <Stack.Navigator screenOptions={stackOptions}>
     <Stack.Screen name="FinanceHome"        component={FinanceHomeScreen} />
     <Stack.Screen name="Expenses"           component={ExpenseAnalysisScreen} />
@@ -162,12 +173,15 @@ const FinanceTabStack = () => (
     <Stack.Screen name="Goals"              component={GoalPlannerScreen} />
     <Stack.Screen name="SplitGroups"        component={SplitGroupsScreen} />
     <Stack.Screen name="SplitGroupDetail"   component={SplitGroupDetailScreen} />
+    <Stack.Screen name="Trips"              component={TripsScreen} />
+    <Stack.Screen name="TripDetail"         component={TripDetailScreen} />
 
     {/* Add forms — slide_from_bottom, full-height modal */}
     <Stack.Screen name="AddExpense"         component={AddExpenseScreen}      options={modalOptions} />
     <Stack.Screen name="AddLoan"            component={LoanEditScreen}        options={modalOptions} />
     <Stack.Screen name="AddSubscription"    component={AddSubscriptionScreen} options={modalOptions} />
     <Stack.Screen name="AddGoal"            component={AddGoalScreen}         options={modalOptions} />
+    <Stack.Screen name="AddTrip"            component={AddTripScreen}         options={modalOptions} />
 
     {/* Aliases for existing routes that still target these names. */}
     <Stack.Screen name="LoanEdit"           component={LoanEditScreen}        options={modalOptions} />
@@ -183,6 +197,7 @@ const MoreTabStack = () => (
     <Stack.Screen name="VaultEntryEdit"       component={VaultEntryEditScreen} options={modalOptions} />
     <Stack.Screen name="Receipts"             component={ReceiptsScreen} />
     <Stack.Screen name="ReceiptDetail"        component={ReceiptDetailScreen} />
+    <Stack.Screen name="AddExpense"           component={AddExpenseScreen}   options={modalOptions} />
     <Stack.Screen name="AIAssistant"          component={AIAssistantScreen} />
     <Stack.Screen name="Courses"              component={CoursesScreen} />
     <Stack.Screen name="CourseDetail"         component={CourseDetailScreen} />
@@ -207,11 +222,11 @@ const TAB_ICONS = {
   Home:    'view-dashboard',
   Markets: 'chart-line',
   Tools:   'calculator-variant',
-  Finance: 'wallet',
+  Money:   'wallet',
   More:    'dots-horizontal-circle',
 };
 
-// Compute Finance tab badge: count overdue loans + subs. We poll on
+// Compute Money tab badge: count overdue loans + subs. We poll on
 // focus rather than subscribe — the data lives in AsyncStorage, so a
 // timer + focus listener keeps the count current without a context.
 function useOverdueCount() {
@@ -255,7 +270,7 @@ const MainTabs = () => {
     <Tab.Navigator
       sceneContainerStyle={{ backgroundColor: COLORS.background }}
       screenListeners={{
-        // Recount when the user lands on Finance — covers the case
+        // Recount when the user lands on Money — covers the case
         // where an Add* modal added something while the tab was active.
         state: () => recount(),
       }}
@@ -292,11 +307,27 @@ const MainTabs = () => {
       })}
     >
       <Tab.Screen name="Home"    component={HomeTabStack} />
-      <Tab.Screen name="Markets" component={MarketsStack} />
+      <Tab.Screen
+        name="Markets"
+        component={MarketsStack}
+        listeners={({ navigation, route }) => ({
+          // Tapping the Markets footer button always returns to the
+          // Markets home (the portfolio dashboard). Without this, React
+          // Navigation keeps the stack state and the user lands on the
+          // last-viewed stock / MF / IPO detail page instead.
+          tabPress: (e) => {
+            const depth = route.state?.routes?.length ?? 0;
+            if (depth > 1) {
+              e.preventDefault();
+              navigation.navigate('Markets', { screen: 'MarketsHomeScreen' });
+            }
+          },
+        })}
+      />
       <Tab.Screen name="Tools"   component={ToolsTabStack} />
       <Tab.Screen
-        name="Finance"
-        component={FinanceTabStack}
+        name="Money"
+        component={MoneyTabStack}
         options={overdue > 0 ? { tabBarBadge: overdue > 9 ? '9+' : String(overdue) } : {}}
       />
       <Tab.Screen name="More"    component={MoreTabStack} />
@@ -356,10 +387,10 @@ const linking = {
               InvoiceGenerator:      'calculator/invoice',
             },
           },
-          Finance: {
+          Money: {
             screens: {
-              FinanceHome: 'finance',
-              AddExpense:  'finance/add',
+              FinanceHome: 'money',
+              AddExpense:  'money/add',
             },
           },
           More: {

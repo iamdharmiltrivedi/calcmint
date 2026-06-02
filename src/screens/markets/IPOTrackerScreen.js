@@ -193,7 +193,7 @@ function IPOCard({ ipo, onSetReminder, navigation }) {
         {ipo.status === 'active' && (
           <TouchableOpacity
             style={styles.calcBtn}
-            onPress={() => navigation.getParent()?.navigate('Tools', { screen: 'LumpsumCalculator' })}
+            onPress={() => navigation.navigate('LumpsumCalculator')}
             activeOpacity={0.85}
           >
             <Ionicons name="calculator-outline" size={14} color="#fff" />

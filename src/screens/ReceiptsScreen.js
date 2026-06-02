@@ -24,14 +24,15 @@ const daysUntil = (iso) => {
 const ROOT = '__root__';     // top-level "All folders" view
 const UNFILED = '__unfiled__'; // pseudo-folder for docs with no folderId
 
-export default function ReceiptsScreen({ navigation }) {
+export default function ReceiptsScreen({ navigation, route }) {
   const insets = useSafeAreaInsets();
+  const initialFolderId = route?.params?.folderId || null;
   const [items, setItems] = useState([]);
   const [folders, setFolders] = useState([]);
   const [busy, setBusy] = useState(false);
   const [busyLabel, setBusyLabel] = useState('');
   const [filter, setFilter] = useState('all'); // 'all' | kind key
-  const [view, setView] = useState(ROOT); // ROOT | folderId | UNFILED
+  const [view, setView] = useState(initialFolderId || ROOT); // ROOT | folderId | UNFILED
   const [newFolderOpen, setNewFolderOpen] = useState(false);
   const [newFolderName, setNewFolderName] = useState('');
 
@@ -39,6 +40,11 @@ export default function ReceiptsScreen({ navigation }) {
     Promise.all([StorageService.getReceipts(), StorageService.getDocFolders()])
       .then(([recs, fs]) => { setItems(recs); setFolders(fs); });
   }, []);
+
+  // If the screen is re-entered with a folderId param, jump to it.
+  useEffect(() => {
+    if (initialFolderId) setView(initialFolderId);
+  }, [initialFolderId]);
 
   useEffect(() => {
     const focus = navigation.addListener('focus', () => {
@@ -68,21 +74,59 @@ export default function ReceiptsScreen({ navigation }) {
     setBusyLabel('');
     try {
       let uri = null;
-      if (source === 'scan')         uri = await ReceiptService.scanDocument();
-      else if (source === 'camera')  uri = await ReceiptService.pickFromCamera();
-      else                            uri = await ReceiptService.pickFromLibrary();
+      let pickedName = '';
+      let pickedMime = '';
+      if (source === 'scan') {
+        uri = await ReceiptService.scanDocument();
+      } else if (source === 'camera') {
+        uri = await ReceiptService.pickFromCamera();
+      } else if (source === 'file') {
+        const picked = await ReceiptService.pickFromFiles();
+        if (picked) {
+          uri = picked.uri;
+          pickedName = picked.name;
+          pickedMime = picked.mimeType;
+        }
+      } else {
+        uri = await ReceiptService.pickFromLibrary();
+      }
       if (!uri) return;
 
       const id = Date.now().toString();
-      setBusyLabel('Saving image…');
-      const stored = await ReceiptService.saveImage(uri, id);
+      // Treat camera/scan/library output and image MIME types as images.
+      // Anything else (PDF, docx, etc.) is stored as-is, no OCR, no compression.
+      const isImage = source !== 'file' || ReceiptService.isImageMime(pickedMime);
+
+      let stored;
+      if (isImage) {
+        setBusyLabel('Saving image…');
+        stored = await ReceiptService.saveImage(uri, id);
+      } else {
+        setBusyLabel('Saving file…');
+        stored = await ReceiptService.saveFile(uri, id, pickedName);
+      }
 
       let extracted = null;
       let ocrText = '';
-      if (OcrService.isAvailable()) {
-        setBusyLabel('Reading text…');
-        ocrText = await OcrService.recognize(stored);
-        if (ocrText) extracted = parseReceipt(ocrText);
+      if (isImage && OcrService.isAvailable()) {
+        // OCR is opt-in — ask before running it so users who just want to
+        // archive an image aren't forced to wait for text extraction.
+        const wantsOcr = await new Promise((resolve) => {
+          Alert.alert(
+            'Extract text from image?',
+            'We can read the vendor, amount and date from this image and auto-fill the details.',
+            [
+              { text: 'Skip', style: 'cancel', onPress: () => resolve(false) },
+              { text: 'Extract', onPress: () => resolve(true) },
+            ],
+            { cancelable: true, onDismiss: () => resolve(false) },
+          );
+        });
+        if (wantsOcr) {
+          setBusyLabel('Reading text…');
+          ocrText = await OcrService.recognize(stored);
+          if (ocrText) extracted = parseReceipt(ocrText);
+        }
       }
 
       const today = new Date();
@@ -94,10 +138,12 @@ export default function ReceiptsScreen({ navigation }) {
       const draft = {
         id,
         imageUri: stored,
+        mimeType: isImage ? 'image/jpeg' : (pickedMime || ''),
+        fileName: isImage ? undefined : pickedName,
         kind: suggestedKind || (filter === 'all' ? 'receipt' : filter),
         kindManual: false,
         scanned: source === 'scan',
-        vendor: extracted?.vendor || '',
+        vendor: extracted?.vendor || (isImage ? '' : pickedName.replace(/\.[^.]+$/, '')),
         amount: extracted?.amount || 0,
         date: extracted?.date || today.toISOString(),
         warrantyMonths: 0,
@@ -122,8 +168,8 @@ export default function ReceiptsScreen({ navigation }) {
     const scannerOn = ReceiptService.isScannerAvailable();
     if (Platform.OS === 'ios') {
       const options = scannerOn
-        ? ['Cancel', 'Scan document', 'Take photo', 'Choose from library']
-        : ['Cancel', 'Take photo', 'Choose from library'];
+        ? ['Cancel', 'Scan document', 'Take photo', 'Choose from library', 'Choose file (PDF, etc.)']
+        : ['Cancel', 'Take photo', 'Choose from library', 'Choose file (PDF, etc.)'];
       ActionSheetIOS.showActionSheetWithOptions(
         { options, cancelButtonIndex: 0 },
         (i) => {
@@ -132,9 +178,11 @@ export default function ReceiptsScreen({ navigation }) {
             if (i === 1) onAdd('scan');
             else if (i === 2) onAdd('camera');
             else if (i === 3) onAdd('library');
+            else if (i === 4) onAdd('file');
           } else {
             if (i === 1) onAdd('camera');
             else if (i === 2) onAdd('library');
+            else if (i === 3) onAdd('file');
           }
         },
       );
@@ -143,6 +191,7 @@ export default function ReceiptsScreen({ navigation }) {
       if (scannerOn) buttons.push({ text: 'Scan document', onPress: () => onAdd('scan') });
       buttons.push({ text: 'Take photo', onPress: () => onAdd('camera') });
       buttons.push({ text: 'Choose from library', onPress: () => onAdd('library') });
+      buttons.push({ text: 'Choose file (PDF, etc.)', onPress: () => onAdd('file') });
       Alert.alert('Add document', '', buttons);
     }
   };
@@ -272,10 +321,15 @@ export default function ReceiptsScreen({ navigation }) {
               onLongPress={() => deleteFolder(f.id)}
             >
               <View style={[styles.folderIcon, { backgroundColor: COLORS.card }]}>
-                <Ionicons name="folder" size={20} color={COLORS.primary} />
+                <Ionicons name={f.tripId ? 'airplane' : 'folder'} size={20} color={COLORS.primary} />
               </View>
               <Text style={styles.folderName} numberOfLines={1}>{f.name}</Text>
               <Text style={styles.folderCount}>{folderCount(f.id)} item{folderCount(f.id) === 1 ? '' : 's'}</Text>
+              {f.tripId ? (
+                <View style={styles.tripTag}>
+                  <Text style={styles.tripTagText}>TRIP</Text>
+                </View>
+              ) : null}
             </TouchableOpacity>
           ))}
 
@@ -422,9 +476,24 @@ function ReceiptTile({ receipt, onPress }) {
     }
   }
   const kindCfg = DOC_KINDS[receipt.kind] || DOC_KINDS.receipt;
+  const isImage = !receipt.mimeType || /^image\//i.test(receipt.mimeType);
+  const isPdf = /pdf/i.test(receipt.mimeType || '') || /\.pdf$/i.test(receipt.imageUri || '');
   return (
     <TouchableOpacity style={styles.tile} onPress={onPress} activeOpacity={0.85}>
-      <Image source={{ uri: receipt.imageUri }} style={styles.tileImage} resizeMode="cover" />
+      {isImage ? (
+        <Image source={{ uri: receipt.imageUri }} style={styles.tileImage} resizeMode="cover" />
+      ) : (
+        <View style={[styles.tileImage, styles.tileFile, { backgroundColor: kindCfg.soft }]}>
+          <Ionicons
+            name={isPdf ? 'document-text' : 'document-attach'}
+            size={44}
+            color={kindCfg.color}
+          />
+          <Text style={[styles.tileFileLabel, { color: kindCfg.color }]} numberOfLines={1}>
+            {isPdf ? 'PDF' : (receipt.fileName || 'File')}
+          </Text>
+        </View>
+      )}
       <View style={[styles.kindBadge, { backgroundColor: kindCfg.soft }]}>
         <Ionicons name={kindCfg.icon} size={11} color={kindCfg.color} />
         <Text style={[styles.kindBadgeText, { color: kindCfg.color }]}>{kindCfg.label}</Text>
@@ -530,6 +599,8 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: COLORS.border, overflow: 'hidden',
   },
   tileImage: { width: '100%', aspectRatio: 1, backgroundColor: '#E8EBE7' },
+  tileFile: { alignItems: 'center', justifyContent: 'center', gap: 6, padding: 10 },
+  tileFileLabel: { fontSize: 11, fontWeight: '800', letterSpacing: 0.5 },
   tileMeta: { padding: 10 },
   tileVendor: { fontSize: 13, fontWeight: '700', color: COLORS.text },
   tileAmount: { ...MONO_STYLE, fontSize: 12, color: COLORS.subtext, marginTop: 2 },
@@ -552,6 +623,12 @@ const styles = StyleSheet.create({
   },
   folderName: { fontSize: 12, fontWeight: '800', color: COLORS.text, marginTop: 8 },
   folderCount: { fontSize: 10, color: COLORS.subtext, marginTop: 2 },
+  tripTag: {
+    position: 'absolute', top: 8, right: 8,
+    paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6,
+    backgroundColor: COLORS.primarySoft,
+  },
+  tripTagText: { fontSize: 8, fontWeight: '800', color: COLORS.primary, letterSpacing: 0.6 },
 
   chipRow: {
     paddingHorizontal: 16, paddingTop: 2, paddingBottom: 8, gap: 8,

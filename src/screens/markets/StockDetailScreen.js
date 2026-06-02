@@ -101,9 +101,8 @@ export default function StockDetailScreen({ route, navigation }) {
   const onSIPFromFund = () => {
     if (holding.type !== 'MF') return;
     const cagrProxy = Math.max(8, Math.min(22, profitLossPercent || 12));
-    navigation.getParent()?.navigate('Tools', {
-      screen: 'SIPCalculator',
-      params: { fund: { name: holding.name, symbol: holding.symbol, cagr: cagrProxy } },
+    navigation.navigate('SIPCalculator', {
+      fund: { name: holding.name, symbol: holding.symbol, cagr: cagrProxy },
     });
   };
 
@@ -228,12 +227,11 @@ export default function StockDetailScreen({ route, navigation }) {
           <CalcLink
             icon="cash-outline"
             label="Lumpsum what-if"
-            onPress={() => navigation.getParent()?.navigate('Tools', {
-              screen: 'LumpsumCalculator',
-              params: { fund: { name: holding.name, symbol: holding.symbol, cagr: Math.max(8, Math.min(22, profitLossPercent || 12)) } },
+            onPress={() => navigation.navigate('LumpsumCalculator', {
+              fund: { name: holding.name, symbol: holding.symbol, cagr: Math.max(8, Math.min(22, profitLossPercent || 12)) },
             })}
           />
-          <CalcLink icon="flag" label="Set a goal" onPress={() => navigation.getParent()?.navigate('Finance', { screen: 'Goals' })} />
+          <CalcLink icon="flag" label="Set a goal" onPress={() => navigation.getParent()?.navigate('Money', { screen: 'Goals' })} />
         </View>
 
         {/* News — max 3 with See all */}

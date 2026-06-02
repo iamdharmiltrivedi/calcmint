@@ -150,7 +150,36 @@ export default function ReceiptDetailScreen({ navigation, route }) {
 
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
-          <Image source={{ uri: receipt.imageUri }} style={styles.image} resizeMode="cover" />
+          {(() => {
+            const isImage = !receipt.mimeType || /^image\//i.test(receipt.mimeType);
+            const isPdf = /pdf/i.test(receipt.mimeType || '') || /\.pdf$/i.test(receipt.imageUri || '');
+            const openFile = async () => {
+              try {
+                await ReceiptService.openExternally(receipt.imageUri, receipt.mimeType);
+              } catch (e) {
+                Alert.alert('Could not open file', e.message);
+              }
+            };
+            if (isImage) {
+              return <Image source={{ uri: receipt.imageUri }} style={styles.image} resizeMode="cover" />;
+            }
+            return (
+              <TouchableOpacity style={styles.fileCard} onPress={openFile} activeOpacity={0.85}>
+                <Ionicons
+                  name={isPdf ? 'document-text' : 'document-attach'}
+                  size={56}
+                  color={COLORS.primary}
+                />
+                <Text style={styles.fileCardName} numberOfLines={2}>
+                  {receipt.fileName || (isPdf ? 'PDF document' : 'File')}
+                </Text>
+                <View style={styles.fileCardOpenBtn}>
+                  <Ionicons name="open-outline" size={14} color="#fff" />
+                  <Text style={styles.fileCardOpenText}>Open file</Text>
+                </View>
+              </TouchableOpacity>
+            );
+          })()}
 
           {receipt.ocrAt ? (
             <View style={styles.extractedBanner}>
@@ -280,6 +309,21 @@ const styles = StyleSheet.create({
     width: '100%', aspectRatio: 1, borderRadius: 16,
     backgroundColor: '#E8EBE7', marginBottom: 18,
   },
+  fileCard: {
+    width: '100%', aspectRatio: 1.4, borderRadius: 16,
+    backgroundColor: COLORS.card, borderWidth: 1, borderColor: COLORS.border,
+    alignItems: 'center', justifyContent: 'center', gap: 10,
+    paddingHorizontal: 24, marginBottom: 18,
+  },
+  fileCardName: {
+    fontSize: 14, fontWeight: '700', color: COLORS.text, textAlign: 'center',
+  },
+  fileCardOpenBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    backgroundColor: COLORS.text, paddingHorizontal: 14, height: 36, borderRadius: 10,
+    marginTop: 4,
+  },
+  fileCardOpenText: { color: '#fff', fontSize: 12, fontWeight: '800' },
 
   fieldLabel: { fontSize: 12, color: COLORS.subtext, fontWeight: '700', marginBottom: 6, marginTop: 12 },
   input: {

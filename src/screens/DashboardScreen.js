@@ -1,8 +1,9 @@
-import React, { useEffect, useMemo, useState, useCallback } from 'react';
+import React, { useEffect, useMemo, useState, useCallback, useRef } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, ActivityIndicator,
   TextInput, KeyboardAvoidingView, Platform, Alert,
 } from 'react-native';
+import { searchMutualFunds } from '../services/markets/MFNavService';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, MONO_STYLE } from '../constants/colors';
@@ -52,6 +53,11 @@ export default function DashboardScreen({ navigation }) {
   const [watchSheet,   setWatchSheet]   = useState(false);
   const [expForm, setExpForm] = useState({ amount: '', categoryId: 'food', note: '' });
   const [watchForm, setWatchForm] = useState({ name: '', symbol: '', type: 'Stock' });
+  // MF search inside the watchlist sheet
+  const [mfQuery, setMfQuery] = useState('');
+  const [mfResults, setMfResults] = useState([]);
+  const [mfSearching, setMfSearching] = useState(false);
+  const mfSearchTimer = useRef(null);
 
   // Markets data
   const portfolioHoldings = usePortfolioStore((s) => s.holdings);
@@ -177,14 +183,51 @@ export default function DashboardScreen({ navigation }) {
   };
 
   const submitWatch = async () => {
-    if (!watchForm.symbol.trim() || !watchForm.name.trim()) return Alert.alert('Name and symbol are required');
+    if (!watchForm.symbol.trim() || !watchForm.name.trim()) {
+      return Alert.alert(
+        watchForm.type === 'MF' ? 'Pick a mutual fund' : 'Name and symbol are required',
+      );
+    }
     await addWatch({
       name: watchForm.name.trim(),
-      symbol: watchForm.symbol.trim().toUpperCase(),
+      symbol: watchForm.type === 'MF' ? String(watchForm.symbol).trim() : watchForm.symbol.trim().toUpperCase(),
       type: watchForm.type,
     });
     setWatchForm({ name: '', symbol: '', type: 'Stock' });
+    setMfQuery(''); setMfResults([]);
     setWatchSheet(false);
+  };
+
+  // Debounced MF search inside the watchlist sheet
+  useEffect(() => {
+    if (watchForm.type !== 'MF' || watchForm.symbol) {
+      setMfResults([]);
+      return;
+    }
+    const q = mfQuery.trim();
+    if (q.length < 2) { setMfResults([]); setMfSearching(false); return; }
+    if (mfSearchTimer.current) clearTimeout(mfSearchTimer.current);
+    setMfSearching(true);
+    mfSearchTimer.current = setTimeout(async () => {
+      const list = await searchMutualFunds(q);
+      setMfResults(list);
+      setMfSearching(false);
+    }, 280);
+    return () => mfSearchTimer.current && clearTimeout(mfSearchTimer.current);
+  }, [mfQuery, watchForm.type, watchForm.symbol]);
+
+  const pickWatchFund = (fund) => {
+    setWatchForm((f) => ({
+      ...f,
+      name: fund.schemeName,
+      symbol: String(fund.schemeCode),
+    }));
+    setMfQuery('');
+    setMfResults([]);
+  };
+
+  const clearWatchFund = () => {
+    setWatchForm((f) => ({ ...f, name: '', symbol: '' }));
   };
 
   return (
@@ -325,10 +368,7 @@ export default function DashboardScreen({ navigation }) {
             </View>
             <TouchableOpacity
               style={styles.surplusBtn}
-              onPress={() => navigation.getParent()?.navigate('Tools', {
-                screen: 'SIPCalculator',
-                params: { prefillAmount: Math.round(surplus) },
-              })}
+              onPress={() => navigation.navigate('SIPCalculator', { prefillAmount: Math.round(surplus) })}
             >
               <Text style={styles.surplusBtnText}>Start SIP</Text>
               <Ionicons name="arrow-forward" size={13} color="#fff" />
@@ -370,7 +410,7 @@ export default function DashboardScreen({ navigation }) {
 
         {/* Goals */}
         {goalProgress && (
-          <Section title="Goals" onMore={() => navigation.getParent()?.navigate('Finance', { screen: 'Goals' })}>
+          <Section title="Goals" onMore={() => navigation.getParent()?.navigate('Money', { screen: 'Goals' })}>
             <View style={styles.goalSummary}>
               <Text style={styles.goalLabel}>Across {goalProgress.count} goal{goalProgress.count > 1 ? 's' : ''}</Text>
               <Text style={styles.goalValue}>
@@ -386,7 +426,7 @@ export default function DashboardScreen({ navigation }) {
 
         {/* Upcoming EMIs */}
         {upcomingEMIs.length > 0 && (
-          <Section title="Upcoming EMIs" onMore={() => navigation.getParent()?.navigate('Finance', { screen: 'Loans' })}>
+          <Section title="Upcoming EMIs" onMore={() => navigation.getParent()?.navigate('Money', { screen: 'Loans' })}>
             {upcomingEMIs.map(({ loan, s }) => {
               const overdue = s.daysLeft < 0;
               const today = s.daysLeft === 0;
@@ -396,7 +436,7 @@ export default function DashboardScreen({ navigation }) {
                   key={loan.id}
                   style={styles.listRow}
                   activeOpacity={0.8}
-                  onPress={() => navigation.getParent()?.navigate('Finance', { screen: 'LoanEdit', params: { id: loan.id } })}
+                  onPress={() => navigation.getParent()?.navigate('Money', { screen: 'LoanEdit', params: { id: loan.id } })}
                 >
                   <View style={[styles.listIcon, { backgroundColor: '#E7EDFE' }]}>
                     <Ionicons name="cash-outline" size={15} color="#2E5BFF" />
@@ -418,7 +458,7 @@ export default function DashboardScreen({ navigation }) {
 
         {/* Subscriptions */}
         {upcomingSubs.length > 0 && (
-          <Section title="Upcoming renewals" onMore={() => navigation.getParent()?.navigate('Finance', { screen: 'Subscriptions' })}>
+          <Section title="Upcoming renewals" onMore={() => navigation.getParent()?.navigate('Money', { screen: 'Subscriptions' })}>
             {upcomingSubs.map((s) => {
               const d = Math.round((new Date(s.nextRenewal) - new Date()) / 86400000);
               return (
@@ -505,6 +545,7 @@ export default function DashboardScreen({ navigation }) {
       {/* ── Add to watchlist bottom sheet ────────────────────────────── */}
       <BottomSheet visible={watchSheet} onClose={() => setWatchSheet(false)} title="Add to watchlist">
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
           <View style={styles.segment}>
             {['Stock', 'MF'].map((t) => {
               const sel = watchForm.type === t;
@@ -512,7 +553,10 @@ export default function DashboardScreen({ navigation }) {
                 <TouchableOpacity
                   key={t}
                   style={[styles.segItem, sel && styles.segItemActive]}
-                  onPress={() => setWatchForm({ ...watchForm, type: t })}
+                  onPress={() => {
+                    setWatchForm({ name: '', symbol: '', type: t });
+                    setMfQuery(''); setMfResults([]);
+                  }}
                 >
                   <Text style={[styles.segText, sel && { color: '#fff' }]}>{t === 'MF' ? 'Mutual Fund' : 'Stock'}</Text>
                 </TouchableOpacity>
@@ -520,33 +564,103 @@ export default function DashboardScreen({ navigation }) {
             })}
           </View>
 
-          <Text style={[styles.sheetLabel, { marginTop: 14 }]}>Name</Text>
-          <View style={styles.sheetField}>
-            <TextInput
-              style={styles.sheetInput}
-              value={watchForm.name}
-              onChangeText={(v) => setWatchForm({ ...watchForm, name: v })}
-              placeholder="HDFC Bank Ltd"
-              placeholderTextColor={COLORS.faint}
-              autoFocus
-            />
-          </View>
+          {watchForm.type === 'Stock' ? (
+            <>
+              <Text style={[styles.sheetLabel, { marginTop: 14 }]}>Name</Text>
+              <View style={styles.sheetField}>
+                <TextInput
+                  style={styles.sheetInput}
+                  value={watchForm.name}
+                  onChangeText={(v) => setWatchForm({ ...watchForm, name: v })}
+                  placeholder="HDFC Bank Ltd"
+                  placeholderTextColor={COLORS.faint}
+                  autoFocus
+                />
+              </View>
 
-          <Text style={[styles.sheetLabel, { marginTop: 14 }]}>{watchForm.type === 'MF' ? 'Scheme code' : 'Symbol'}</Text>
-          <View style={styles.sheetField}>
-            <TextInput
-              style={styles.sheetInput}
-              value={watchForm.symbol}
-              onChangeText={(v) => setWatchForm({ ...watchForm, symbol: v.toUpperCase() })}
-              placeholder={watchForm.type === 'MF' ? '120503' : 'HDFCBANK'}
-              placeholderTextColor={COLORS.faint}
-              autoCapitalize="characters"
-            />
-          </View>
+              <Text style={[styles.sheetLabel, { marginTop: 14 }]}>Symbol</Text>
+              <View style={styles.sheetField}>
+                <TextInput
+                  style={styles.sheetInput}
+                  value={watchForm.symbol}
+                  onChangeText={(v) => setWatchForm({ ...watchForm, symbol: v.toUpperCase() })}
+                  placeholder="HDFCBANK"
+                  placeholderTextColor={COLORS.faint}
+                  autoCapitalize="characters"
+                />
+              </View>
+            </>
+          ) : (
+            <>
+              {watchForm.symbol ? (
+                <View style={styles.mfPickedRow}>
+                  <View style={{ flex: 1, minWidth: 0 }}>
+                    <Text style={styles.mfPickedName} numberOfLines={2}>{watchForm.name}</Text>
+                    <Text style={styles.mfPickedMeta}>Scheme {watchForm.symbol}</Text>
+                  </View>
+                  <TouchableOpacity onPress={clearWatchFund} style={styles.mfChangeBtn} activeOpacity={0.85}>
+                    <Text style={styles.mfChangeText}>Change</Text>
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                <>
+                  <Text style={[styles.sheetLabel, { marginTop: 14 }]}>Search mutual fund</Text>
+                  <View style={[styles.sheetField, { flexDirection: 'row', alignItems: 'center' }]}>
+                    <Ionicons name="search" size={16} color={COLORS.subtext} style={{ marginRight: 8 }} />
+                    <TextInput
+                      style={[styles.sheetInput, { flex: 1 }]}
+                      value={mfQuery}
+                      onChangeText={setMfQuery}
+                      placeholder="e.g. HDFC Top 100, Parag Parikh Flexi…"
+                      placeholderTextColor={COLORS.faint}
+                      autoCapitalize="none"
+                      autoCorrect={false}
+                      returnKeyType="search"
+                    />
+                    {mfSearching ? <ActivityIndicator size="small" color={COLORS.primary} /> : null}
+                  </View>
+
+                  {mfQuery.trim().length === 1 ? (
+                    <Text style={styles.mfEmptyHint}>Type 2+ characters to search…</Text>
+                  ) : null}
+                  {mfSearching ? (
+                    <Text style={styles.mfEmptyHint}>Searching…</Text>
+                  ) : null}
+                  {mfQuery.trim().length >= 2 && !mfSearching && mfResults.length === 0 ? (
+                    <Text style={styles.mfEmptyHint}>No matches. Try the AMC or fund family name.</Text>
+                  ) : null}
+
+                  {mfResults.length > 0 && (
+                    <ScrollView
+                      style={styles.mfResultList}
+                      keyboardShouldPersistTaps="handled"
+                      nestedScrollEnabled
+                    >
+                      {mfResults.slice(0, 20).map((r) => (
+                        <TouchableOpacity
+                          key={r.schemeCode}
+                          style={styles.mfResultRow}
+                          onPress={() => pickWatchFund(r)}
+                          activeOpacity={0.85}
+                        >
+                          <View style={{ flex: 1, minWidth: 0 }}>
+                            <Text style={styles.mfResultName} numberOfLines={2}>{r.schemeName}</Text>
+                            <Text style={styles.mfResultMeta}>Scheme {r.schemeCode}</Text>
+                          </View>
+                          <Ionicons name="add-circle-outline" size={20} color={COLORS.primary} />
+                        </TouchableOpacity>
+                      ))}
+                    </ScrollView>
+                  )}
+                </>
+              )}
+            </>
+          )}
 
           <TouchableOpacity style={styles.sheetCta} onPress={submitWatch} activeOpacity={0.9}>
             <Text style={styles.sheetCtaText}>Add to watchlist</Text>
           </TouchableOpacity>
+        </ScrollView>
         </KeyboardAvoidingView>
       </BottomSheet>
     </SafeAreaView>
@@ -681,6 +795,28 @@ const styles = StyleSheet.create({
   sheetInput:  { flex: 1, fontSize: 15, color: COLORS.text, fontWeight: '700' },
   sheetCta:    { marginTop: 18, backgroundColor: COLORS.primary, paddingVertical: 14, borderRadius: 12, alignItems: 'center' },
   sheetCtaText:{ color: '#fff', fontWeight: '800', fontSize: 14 },
+
+  // MF search inside the watchlist sheet
+  mfEmptyHint: { fontSize: 12, color: COLORS.subtext, marginTop: 10, paddingHorizontal: 4 },
+  mfResultList: {
+    marginTop: 8, backgroundColor: COLORS.card, borderRadius: 12,
+    borderWidth: 1, borderColor: COLORS.border, overflow: 'hidden', maxHeight: 280,
+  },
+  mfResultRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    padding: 12, borderBottomWidth: 0.5, borderBottomColor: COLORS.hairline,
+  },
+  mfResultName: { fontSize: 13, color: COLORS.text, fontWeight: '700' },
+  mfResultMeta: { fontSize: 11, color: COLORS.subtext, marginTop: 2, fontWeight: '600' },
+  mfPickedRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    backgroundColor: COLORS.primarySoft, borderRadius: 12, padding: 14, marginTop: 14,
+    borderWidth: 1, borderColor: COLORS.primary + '40',
+  },
+  mfPickedName: { fontSize: 13.5, color: COLORS.text, fontWeight: '800' },
+  mfPickedMeta: { fontSize: 11, color: COLORS.subtext, marginTop: 3, fontWeight: '600' },
+  mfChangeBtn: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, backgroundColor: '#fff' },
+  mfChangeText: { fontSize: 11.5, color: COLORS.primary, fontWeight: '800' },
 
   catGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   catChip: {

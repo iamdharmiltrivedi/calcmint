@@ -13,8 +13,9 @@ const today = () => new Date().toISOString().split('T')[0];
 
 // Modal screen presented from slide_from_bottom — the same look + feel
 // as a bottom sheet but as a real route so deep links can land here.
-export default function AddExpenseScreen({ navigation }) {
+export default function AddExpenseScreen({ navigation, route }) {
   const { addExpense } = useApp();
+  const tripId = route?.params?.tripId || null;
   const [amount, setAmount] = useState('');
   const [categoryId, setCategoryId] = useState('food');
   const [note, setNote] = useState('');
@@ -23,7 +24,13 @@ export default function AddExpenseScreen({ navigation }) {
   const submit = async () => {
     const amt = parseFloat(amount);
     if (!amt || amt <= 0) return Alert.alert('Enter an amount');
-    await addExpense({ amount: amt, categoryId, note: note.trim(), date: date || today() });
+    await addExpense({
+      amount: amt,
+      categoryId,
+      note: note.trim(),
+      date: date || today(),
+      ...(tripId ? { tripId } : {}),
+    });
     navigation.goBack();
   };
 
@@ -38,6 +45,13 @@ export default function AddExpenseScreen({ navigation }) {
 
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
+          {tripId ? (
+            <View style={styles.tripBanner}>
+              <Ionicons name="airplane" size={14} color={COLORS.primary} />
+              <Text style={styles.tripBannerText}>This expense will be added to the current trip.</Text>
+            </View>
+          ) : null}
+
           <Text style={styles.label}>Amount</Text>
           <View style={styles.field}>
             <Text style={styles.prefix}>₹</Text>
@@ -125,4 +139,11 @@ const styles = StyleSheet.create({
 
   cta: { marginTop: 22, backgroundColor: COLORS.primary, paddingVertical: 14, borderRadius: 12, alignItems: 'center' },
   ctaText: { color: '#fff', fontWeight: '800', fontSize: 14 },
+
+  tripBanner: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    backgroundColor: COLORS.primarySoft, borderRadius: 10, padding: 10,
+    marginBottom: 12,
+  },
+  tripBannerText: { flex: 1, fontSize: 12, color: COLORS.primary, fontWeight: '700' },
 });

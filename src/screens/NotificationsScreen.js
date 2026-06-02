@@ -86,7 +86,7 @@ export default function NotificationsScreen({ navigation }) {
               <TouchableOpacity
                 key={n.id}
                 style={[styles.row, { borderLeftColor: tint, borderLeftWidth: 3 }]}
-                onPress={() => navigation.getParent()?.navigate('Finance', { screen: n.route, params: n.params })}
+                onPress={() => navigation.getParent()?.navigate('Money', { screen: n.route, params: n.params })}
                 activeOpacity={0.85}
               >
                 <View style={[styles.iconBox, { backgroundColor: tint + '18' }]}>

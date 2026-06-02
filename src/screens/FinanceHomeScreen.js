@@ -119,6 +119,15 @@ export default function FinanceHomeScreen({ navigation }) {
               ctaOnPress={() => navigation.navigate('AddGoal')}
             />
             <SectionTile
+              icon="airplane-outline"
+              accent="#E07A1F"
+              title="Trips"
+              subtitle="Group docs & expenses by trip"
+              onPress={() => navigation.navigate('Trips')}
+              ctaIcon="add"
+              ctaOnPress={() => navigation.navigate('AddTrip')}
+            />
+            <SectionTile
               icon="people-outline"
               accent="#6F4FE0"
               title="Split groups"

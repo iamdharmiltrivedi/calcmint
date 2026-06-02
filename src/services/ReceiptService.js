@@ -1,6 +1,17 @@
 import * as FileSystem from 'expo-file-system/legacy';
 import * as ImagePicker from 'expo-image-picker';
 import * as ImageManipulator from 'expo-image-manipulator';
+import * as DocumentPicker from 'expo-document-picker';
+import * as Sharing from 'expo-sharing';
+
+const IMAGE_MIME_RE = /^image\//i;
+const PDF_MIME_RE = /pdf/i;
+
+function extFromName(name) {
+  if (!name || typeof name !== 'string') return '';
+  const i = name.lastIndexOf('.');
+  return i >= 0 ? name.slice(i + 1).toLowerCase() : '';
+}
 
 // Optional native module — only present in a dev / EAS build. Wrap the require
 // so the JS bundle still runs in Expo Go (the call will throw at runtime instead).
@@ -81,12 +92,55 @@ const ReceiptService = {
     return res.assets?.[0]?.uri || null;
   },
 
+  // System file picker — accepts PDFs, images, and any other file the user chooses.
+  // Returns { uri, name, mimeType } or null when cancelled.
+  async pickFromFiles() {
+    const res = await DocumentPicker.getDocumentAsync({
+      type: ['image/*', 'application/pdf', '*/*'],
+      copyToCacheDirectory: true,
+      multiple: false,
+    });
+    if (res.canceled) return null;
+    const asset = res.assets?.[0];
+    if (!asset?.uri) return null;
+    return {
+      uri: asset.uri,
+      name: asset.name || 'document',
+      mimeType: asset.mimeType || '',
+    };
+  },
+
+  isImageMime(mime) {
+    return IMAGE_MIME_RE.test(mime || '');
+  },
+
+  isPdfMime(mime, name) {
+    return PDF_MIME_RE.test(mime || '') || extFromName(name) === 'pdf';
+  },
+
   async saveImage(srcUri, id) {
     await ensureDir();
     const compressed = await compress(srcUri);
     const dest = `${RECEIPTS_DIR}${id}.jpg`;
     await FileSystem.copyAsync({ from: compressed, to: dest });
     return dest;
+  },
+
+  // Save a non-image file (PDF, docx, etc.) as-is, keeping the original extension.
+  async saveFile(srcUri, id, name) {
+    await ensureDir();
+    const ext = extFromName(name) || 'bin';
+    const dest = `${RECEIPTS_DIR}${id}.${ext}`;
+    await FileSystem.copyAsync({ from: srcUri, to: dest });
+    return dest;
+  },
+
+  async openExternally(uri, mimeType) {
+    if (!uri) throw new Error('No file to open.');
+    if (!(await Sharing.isAvailableAsync())) {
+      throw new Error('Sharing is not available on this device.');
+    }
+    await Sharing.shareAsync(uri, mimeType ? { mimeType } : undefined);
   },
 
   async deleteImage(uri) {
