@@ -1,12 +1,12 @@
 import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import {
-  View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, ActivityIndicator,
+  View, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { COLORS, MONO_STYLE } from '../../constants/colors';
-import { formatINR } from '../../utils/formatters';
+import { COLORS } from '../../constants/colors';
+import { AppText, AppNumber, CurrencyText } from '../../components/typography';
 import { usePortfolioStore } from '../../store/portfolioStore';
 import { useMarketStore } from '../../store/marketStore';
 import { generateRebalanceAdvice } from '../../services/markets/AiAnalysisService';
@@ -39,6 +39,15 @@ export default function PortfolioScreen({ navigation }) {
 
   useEffect(() => { load(); }, [load]);
 
+  const holdingsKey = useMemo(
+    () => holdings.map((h) => `${h.type}:${h.symbol}`).join('|'),
+    [holdings],
+  );
+
+  useEffect(() => {
+    if (holdings.length) refreshAll(holdings);
+  }, [holdingsKey, refreshAll]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     await refreshAll(holdings);
@@ -69,7 +78,7 @@ export default function PortfolioScreen({ navigation }) {
         <TouchableOpacity style={styles.headerIcon} onPress={() => navigation.goBack()}>
           <Ionicons name="chevron-back" size={20} color={COLORS.text} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Portfolio</Text>
+        <AppText variant="cardTitle" style={styles.headerTitle}>Portfolio</AppText>
         <TouchableOpacity style={styles.headerIcon} onPress={() => navigation.navigate('AddEditStock')}>
           <Ionicons name="add" size={20} color={COLORS.text} />
         </TouchableOpacity>
@@ -82,24 +91,30 @@ export default function PortfolioScreen({ navigation }) {
       >
         {/* Hero summary */}
         <LinearGradient colors={COLORS.gradient} style={styles.hero}>
-          <Text style={styles.heroLabel}>TOTAL VALUE</Text>
-          <Text style={styles.heroValue}>{formatINR(summary.totalCurrent)}</Text>
+          <AppText variant="caption" color="rgba(255,255,255,0.6)" style={styles.heroLabel}>
+            TOTAL VALUE
+          </AppText>
+          <CurrencyText value={summary.totalCurrent} size="portfolio" color="#fff" style={styles.heroValue} />
           <View style={styles.heroSplit}>
             <View style={{ flex: 1 }}>
-              <Text style={styles.heroStatLabel}>INVESTED</Text>
-              <Text style={styles.heroStatValue}>{formatINR(summary.totalInvested)}</Text>
+              <AppText variant="caption" color="rgba(255,255,255,0.55)" style={styles.heroStatLabel}>
+                INVESTED
+              </AppText>
+              <CurrencyText value={summary.totalInvested} size="small" color="#fff" style={styles.heroStatValue} />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={styles.heroStatLabel}>P&L</Text>
-              <Text style={[styles.heroStatValue, { color }]}>
-                {positive ? '+' : ''}{formatINR(summary.totalProfitLoss)}
-              </Text>
+              <AppText variant="caption" color="rgba(255,255,255,0.55)" style={styles.heroStatLabel}>
+                P&L
+              </AppText>
+              <CurrencyText value={summary.totalProfitLoss} signed size="small" color={color} style={styles.heroStatValue} />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={styles.heroStatLabel}>RETURN</Text>
-              <Text style={[styles.heroStatValue, { color }]}>
+              <AppText variant="caption" color="rgba(255,255,255,0.55)" style={styles.heroStatLabel}>
+                RETURN
+              </AppText>
+              <AppNumber size="small" color={color} style={styles.heroStatValue}>
                 {positive ? '+' : ''}{summary.totalProfitLossPercent.toFixed(2)}%
-              </Text>
+              </AppNumber>
             </View>
           </View>
         </LinearGradient>
@@ -112,24 +127,28 @@ export default function PortfolioScreen({ navigation }) {
           {adviceLoading ? (
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
               <ActivityIndicator color={COLORS.primary} size="small" />
-              <Text style={styles.adviceText}>Thinking…</Text>
+              <AppText variant="bodySmall" style={styles.adviceText}>Thinking…</AppText>
             </View>
           ) : advice ? (
             <>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                 <View style={styles.aiOrb}><Ionicons name="sparkles" size={13} color={COLORS.gold} /></View>
-                <Text style={styles.adviceText}>{advice}</Text>
+                <AppText variant="bodySmall" style={styles.adviceText}>{advice}</AppText>
               </View>
               <TouchableOpacity style={styles.adviceRefresh} onPress={askAdvice}>
                 <Ionicons name="refresh" size={12} color={COLORS.primary} />
-                <Text style={styles.adviceRefreshText}>Refresh</Text>
+                <AppText variant="caption" color={COLORS.primary} style={styles.adviceRefreshText}>Refresh</AppText>
               </TouchableOpacity>
             </>
           ) : (
             <TouchableOpacity onPress={askAdvice} disabled={!allMetrics.length}>
-              <Text style={[styles.adviceCta, !allMetrics.length && { opacity: 0.4 }]}>
+              <AppText
+                variant="label"
+                color={COLORS.primary}
+                style={[styles.adviceCta, !allMetrics.length && { opacity: 0.4 }]}
+              >
                 {allMetrics.length ? 'Tap to get a personalised tip' : 'Add holdings to get advice'}
-              </Text>
+              </AppText>
             </TouchableOpacity>
           )}
         </View>
@@ -143,7 +162,13 @@ export default function PortfolioScreen({ navigation }) {
               onPress={() => setFilter(f.key)}
               activeOpacity={0.8}
             >
-              <Text style={[styles.filterText, filter === f.key && styles.filterTextActive]}>{f.label}</Text>
+              <AppText
+                variant="label"
+                color={filter === f.key ? '#fff' : COLORS.subtext}
+                style={styles.filterText}
+              >
+                {f.label}
+              </AppText>
             </TouchableOpacity>
           ))}
         </View>
@@ -181,32 +206,29 @@ const styles = StyleSheet.create({
 
   headerBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 18, paddingVertical: 6 },
   headerIcon: { width: 38, height: 38, borderRadius: 12, backgroundColor: COLORS.card, borderWidth: 1, borderColor: COLORS.border, justifyContent: 'center', alignItems: 'center' },
-  headerTitle: { fontSize: 15, fontWeight: '800', color: COLORS.text, letterSpacing: -0.2 },
+  headerTitle: { letterSpacing: -0.2 },
 
   hero: { borderRadius: 24, padding: 20, overflow: 'hidden' },
-  heroLabel: { fontSize: 10.5, fontWeight: '700', letterSpacing: 1.4, color: 'rgba(255,255,255,0.6)' },
-  heroValue: { ...MONO_STYLE, fontSize: 32, fontWeight: '700', color: '#fff', marginTop: 6, letterSpacing: -1 },
+  heroLabel: { letterSpacing: 1.4 },
+  heroValue: { marginTop: 6, letterSpacing: -1 },
   heroSplit: { flexDirection: 'row', gap: 12, marginTop: 14, paddingTop: 12, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.10)' },
-  heroStatLabel: { fontSize: 9.5, color: 'rgba(255,255,255,0.55)', fontWeight: '700', letterSpacing: 0.4 },
-  heroStatValue: { ...MONO_STYLE, fontSize: 13, fontWeight: '700', color: '#fff', marginTop: 3 },
+  heroStatLabel: { letterSpacing: 0.4, fontSize: 10 },
+  heroStatValue: { marginTop: 3 },
 
   adviceCard: {
     backgroundColor: COLORS.card, borderRadius: 14, padding: 14,
     borderWidth: 1, borderColor: COLORS.border,
   },
   aiOrb: { width: 26, height: 26, borderRadius: 8, backgroundColor: COLORS.goldSoft, justifyContent: 'center', alignItems: 'center' },
-  adviceText: { flex: 1, fontSize: 12.5, color: COLORS.text, lineHeight: 18 },
-  adviceCta:  { fontSize: 12.5, color: COLORS.primary, fontWeight: '800' },
+  adviceText: { flex: 1 },
+  adviceCta:  {},
   adviceRefresh: { marginTop: 10, flexDirection: 'row', alignItems: 'center', gap: 4, alignSelf: 'flex-start' },
-  adviceRefreshText: { fontSize: 11, color: COLORS.primary, fontWeight: '800' },
+  adviceRefreshText: {},
 
   filters: { flexDirection: 'row', gap: 6, marginTop: 18, marginBottom: 8 },
   filter:  { paddingHorizontal: 12, paddingVertical: 7, borderRadius: 999, backgroundColor: COLORS.card, borderWidth: 1, borderColor: COLORS.border },
   filterActive: { backgroundColor: COLORS.primary, borderColor: COLORS.primary },
-  filterText:   { fontSize: 11.5, fontWeight: '800', color: COLORS.subtext },
-  filterTextActive: { color: '#fff' },
+  filterText:   {},
 
   empty: { alignItems: 'center', paddingVertical: 40 },
-  emptyTitle: { fontSize: 14, fontWeight: '800', color: COLORS.text, marginTop: 10 },
-  emptyHint:  { fontSize: 11.5, color: COLORS.subtext, marginTop: 4 },
 });

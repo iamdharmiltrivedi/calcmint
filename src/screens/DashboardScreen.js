@@ -62,9 +62,48 @@ export default function DashboardScreen({ navigation }) {
   // Markets data
   const portfolioHoldings = usePortfolioStore((s) => s.holdings);
   const loadPortfolio     = usePortfolioStore((s) => s.load);
-  const portfolioSummary  = usePortfolioStore((s) => s.getSummary());
-  const allMetrics        = usePortfolioStore((s) => s.getAllWithMetrics());
+  const portfolioPrices   = usePortfolioStore((s) => s.prices);
+  const portfolioAnalyses = usePortfolioStore((s) => s.analyses);
   const watchlist         = useMarketStore((s) => s.watchlist);
+
+  // Derive summary / per-holding metrics locally so identity is stable
+  // across renders (the store's getSummary/getAllWithMetrics return fresh
+  // objects every call, which would otherwise retrigger downstream effects).
+  const portfolioSummary = useMemo(() => {
+    let totalInvested = 0;
+    let totalCurrent  = 0;
+    for (const h of portfolioHoldings) {
+      const p = portfolioPrices[h.symbol];
+      const cur = p ? p.currentPrice : h.buyPrice;
+      totalInvested += h.buyPrice * h.quantity;
+      totalCurrent  += cur * h.quantity;
+    }
+    const totalProfitLoss = totalCurrent - totalInvested;
+    return {
+      totalInvested,
+      totalCurrent,
+      totalProfitLoss,
+      totalProfitLossPercent: totalInvested > 0 ? (totalProfitLoss / totalInvested) * 100 : 0,
+      count: portfolioHoldings.length,
+    };
+  }, [portfolioHoldings, portfolioPrices]);
+
+  const allMetrics = useMemo(() => portfolioHoldings.map((h) => {
+    const p  = portfolioPrices[h.symbol];
+    const cp = p ? p.currentPrice : h.buyPrice;
+    const cv = cp * h.quantity;
+    const iv = h.buyPrice * h.quantity;
+    const pl = cv - iv;
+    return {
+      holding: h,
+      currentPrice: cp,
+      currentValue: cv,
+      investedValue: iv,
+      profitLoss: pl,
+      profitLossPercent: iv > 0 ? (pl / iv) * 100 : 0,
+      aiAnalysis: portfolioAnalyses[h.symbol] || null,
+    };
+  }), [portfolioHoldings, portfolioPrices, portfolioAnalyses]);
   const initMarket        = useMarketStore((s) => s.init);
   const refreshPrices     = useMarketStore((s) => s.refreshAllPrices);
   const addWatch          = useMarketStore((s) => s.addWatch);
@@ -393,8 +432,12 @@ export default function DashboardScreen({ navigation }) {
                     <Ionicons name={m.holding.type === 'MF' ? 'pie-chart-outline' : 'stats-chart-outline'} size={15} color={m.holding.type === 'MF' ? COLORS.gold : COLORS.primary} />
                   </View>
                   <View style={{ flex: 1, minWidth: 0 }}>
-                    <Text style={styles.listTitle} numberOfLines={1}>{m.holding.symbol}</Text>
-                    <Text style={styles.listMeta} numberOfLines={1}>{m.holding.name}</Text>
+                    <Text style={styles.listTitle} numberOfLines={1}>
+                      {m.holding.type === 'MF' ? m.holding.name : m.holding.symbol}
+                    </Text>
+                    <Text style={styles.listMeta} numberOfLines={1}>
+                      {m.holding.type === 'MF' ? `Scheme ${m.holding.symbol}` : m.holding.name}
+                    </Text>
                   </View>
                   <View style={{ alignItems: 'flex-end' }}>
                     <Text style={styles.listAmount}>{formatINR(m.currentValue)}</Text>

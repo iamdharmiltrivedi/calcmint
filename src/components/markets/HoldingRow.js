@@ -1,14 +1,24 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { COLORS, MONO_STYLE } from '../../constants/colors';
-import { formatINR } from '../../utils/formatters';
+import { COLORS } from '../../constants/colors';
+import { AppText, AppNumber, CurrencyText } from '../typography';
+import { FONT_FAMILIES } from '../../theme/fonts';
 import Badge from './Badge';
 
 export default function HoldingRow({ metrics, onPress, onLongPress }) {
-  const { holding, currentPrice, currentValue, profitLoss, profitLossPercent } = metrics;
-  const positive = profitLoss >= 0;
-  const color    = positive ? COLORS.positive : COLORS.negative;
+  const {
+    holding, currentPrice, currentValue, profitLoss, profitLossPercent,
+    dayChangePercent = 0, hasLivePrice = false,
+  } = metrics;
+
+  const totalPositive = profitLoss >= 0;
+  const totalColor    = totalPositive ? COLORS.positive : COLORS.negative;
+
+  const dayPositive = dayChangePercent >= 0;
+  const dayColor    = dayPositive ? COLORS.positive : COLORS.negative;
+
+  const priceLabel = holding.type === 'MF' ? 'NAV' : 'LTP';
 
   return (
     <TouchableOpacity
@@ -19,19 +29,50 @@ export default function HoldingRow({ metrics, onPress, onLongPress }) {
     >
       <View style={styles.left}>
         <View style={styles.headerRow}>
-          <Text style={styles.symbol} numberOfLines={1}>{holding.symbol}</Text>
-          <Badge label={holding.type === 'MF' ? 'MF' : (holding.exchange || 'STK')} variant={holding.type === 'MF' ? 'mf' : 'stock'} />
+          <AppText variant="bodySmall" style={styles.symbol} numberOfLines={1} ellipsizeMode="tail">
+            {holding.type === 'MF' ? holding.name : holding.symbol}
+          </AppText>
+          <Badge
+            label={holding.type === 'MF' ? 'MF' : (holding.exchange || 'STK')}
+            variant={holding.type === 'MF' ? 'mf' : 'stock'}
+          />
         </View>
-        <Text style={styles.name} numberOfLines={1}>{holding.name}</Text>
-        <Text style={styles.meta}>{holding.quantity} units · avg {formatINR(holding.buyPrice)}</Text>
+        <AppText variant="caption" color={COLORS.subtext} style={styles.name} numberOfLines={1}>
+          {holding.type === 'MF' ? `Scheme ${holding.symbol}` : holding.name}
+        </AppText>
+        <AppText variant="caption" color={COLORS.faint} style={styles.meta}>
+          {holding.quantity} units · avg ₹{Number(holding.buyPrice || 0).toFixed(2)}
+        </AppText>
+        <View style={styles.priceLine}>
+          <AppText variant="caption" color={COLORS.faint} style={styles.priceLabel}>{priceLabel}</AppText>
+          <CurrencyText value={currentPrice} size="small" />
+          {hasLivePrice ? (
+            <View style={[styles.dayPill, { backgroundColor: dayPositive ? COLORS.positiveSoft : COLORS.negativeSoft }]}>
+              <Ionicons name={dayPositive ? 'caret-up' : 'caret-down'} size={9} color={dayColor} />
+              <AppNumber size="small" color={dayColor} style={styles.dayText}>
+                {Math.abs(dayChangePercent).toFixed(2)}%
+              </AppNumber>
+            </View>
+          ) : (
+            <AppNumber size="small" color={COLORS.faint}>—</AppNumber>
+          )}
+        </View>
       </View>
       <View style={styles.right}>
-        <Text style={styles.value}>{formatINR(currentValue)}</Text>
-        <View style={[styles.plPill, { backgroundColor: positive ? COLORS.positiveSoft : COLORS.negativeSoft }]}>
-          <Ionicons name={positive ? 'caret-up' : 'caret-down'} size={10} color={color} />
-          <Text style={[styles.plText, { color }]}>{Math.abs(profitLossPercent).toFixed(2)}%</Text>
+        <CurrencyText value={currentValue} size="medium" style={styles.value} />
+        <View style={[styles.plPill, { backgroundColor: totalPositive ? COLORS.positiveSoft : COLORS.negativeSoft }]}>
+          <Ionicons name={totalPositive ? 'caret-up' : 'caret-down'} size={10} color={totalColor} />
+          <AppNumber size="small" color={totalColor} style={styles.plPct}>
+            {Math.abs(profitLossPercent).toFixed(2)}%
+          </AppNumber>
         </View>
-        <Text style={styles.priceMeta}>@ {formatINR(currentPrice)}</Text>
+        <CurrencyText
+          value={profitLoss}
+          signed
+          size="small"
+          color={totalColor}
+          style={styles.plAbs}
+        />
       </View>
     </TouchableOpacity>
   );
@@ -44,16 +85,23 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: COLORS.border, marginBottom: 8,
   },
   left:  { flex: 1, minWidth: 0 },
-  right: { alignItems: 'flex-end' },
+  right: { alignItems: 'flex-end', flexShrink: 0 },
   headerRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  symbol: { fontSize: 13.5, fontWeight: '800', color: COLORS.text, letterSpacing: -0.2 },
-  name:   { fontSize: 11.5, color: COLORS.subtext, fontWeight: '600', marginTop: 2 },
-  meta:   { fontSize: 10.5, color: COLORS.faint, marginTop: 2 },
-  value:  { ...MONO_STYLE, fontSize: 14, fontWeight: '800', color: COLORS.text },
+  symbol: { flexShrink: 1, letterSpacing: -0.2, fontSize: 14, fontFamily: FONT_FAMILIES.interSemiBold },
+  value:  { fontSize: 15, lineHeight: 20 },
+  name:   { marginTop: 2 },
+  meta:   { marginTop: 2 },
+  priceLine: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 6 },
+  priceLabel: { letterSpacing: 0.5, fontSize: 10 },
+  dayPill: {
+    flexDirection: 'row', alignItems: 'center', gap: 2,
+    paddingHorizontal: 6, paddingVertical: 1.5, borderRadius: 999,
+  },
+  dayText: { fontSize: 11 },
   plPill: {
     marginTop: 4, flexDirection: 'row', alignItems: 'center', gap: 3,
     paddingHorizontal: 7, paddingVertical: 2, borderRadius: 999,
   },
-  plText: { fontSize: 10.5, fontWeight: '800' },
-  priceMeta: { ...MONO_STYLE, fontSize: 10, color: COLORS.faint, marginTop: 3 },
+  plPct: { fontSize: 11 },
+  plAbs: { marginTop: 3 },
 });

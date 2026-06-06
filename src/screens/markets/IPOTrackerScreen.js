@@ -39,6 +39,7 @@ export default function IPOTrackerScreen({ navigation }) {
   const [refreshing, setRefreshing] = useState(false);
   const [online, setOnline] = useState(true);
   const [lastSuccess, setLastSuccess] = useState(null);
+  const [keyMissing, setKeyMissing] = useState(false);
 
   const load = useCallback(async (force = false) => {
     try {
@@ -46,11 +47,17 @@ export default function IPOTrackerScreen({ navigation }) {
       setItems(data);
       setLastSuccess(Date.now());
       setOnline(true);
-    } catch {
+      setKeyMissing(false);
+    } catch (e) {
+      if (e?.code === 'NO_KEY') {
+        setKeyMissing(true);
+        setItems([]);
+        return;
+      }
       setOnline(false);
-      if (items === null) setItems([]);
+      setItems((prev) => (prev === null ? [] : prev));
     }
-  }, [items]);
+  }, []);
 
   useEffect(() => { load(); }, [load]);
 
@@ -101,7 +108,17 @@ export default function IPOTrackerScreen({ navigation }) {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} />}
         showsVerticalScrollIndicator={false}
       >
-        {!online && (
+        {keyMissing && (
+          <View style={{ marginBottom: 12 }}>
+            <ErrorRetry
+              title="IPO Alerts API key missing"
+              message="Set EXPO_PUBLIC_IPO_ALERTS_API_KEY (or FALLBACK_KEY in IPOService.js) to load live IPOs from ipoalerts.in."
+              onRetry={onRefresh}
+            />
+          </View>
+        )}
+
+        {!online && !keyMissing && (
           <View style={{ marginBottom: 12 }}>
             <ErrorRetry
               title="Couldn’t reach the IPO feed"

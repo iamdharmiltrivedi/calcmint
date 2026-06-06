@@ -1,7 +1,8 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../../constants/colors';
+import { AppText } from '../typography';
 
 // Reusable screen header for any pushed screen. Always shows a back
 // arrow and the parent tab name + screen title, matching the global
@@ -23,8 +24,14 @@ export default function ScreenHeader({
         <View style={{ width: 38 }} />
       )}
       <View style={styles.titleCol}>
-        {parent ? <Text style={styles.parent}>{parent}</Text> : null}
-        <Text style={styles.title} numberOfLines={1}>{title}</Text>
+        {parent ? (
+          <AppText variant="caption" color={COLORS.subtext} style={styles.parent}>
+            {parent}
+          </AppText>
+        ) : null}
+        <AppText variant="cardTitle" style={styles.title} numberOfLines={1}>
+          {title}
+        </AppText>
       </View>
       <View style={styles.rightRow}>
         {right.map((r, i) => (
@@ -51,7 +58,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center', alignItems: 'center',
   },
   titleCol: { flex: 1, alignItems: 'center' },
-  parent: { fontSize: 10.5, color: COLORS.subtext, fontWeight: '700', letterSpacing: 0.4, textTransform: 'uppercase' },
-  title:  { fontSize: 14.5, fontWeight: '800', color: COLORS.text, letterSpacing: -0.2, marginTop: 1 },
+  parent: { letterSpacing: 0.4, textTransform: 'uppercase' },
+  title:  { letterSpacing: -0.2, marginTop: 1, fontSize: 16 },
   rightRow: { flexDirection: 'row', gap: 6 },
 });

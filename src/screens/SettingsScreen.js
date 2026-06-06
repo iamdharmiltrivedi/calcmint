@@ -5,12 +5,9 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../constants/colors';
-import { useLock } from '../context/LockContext';
 import StorageService from '../services/StorageService';
 
 export default function SettingsScreen({ navigation }) {
-  const { lockEnabled, autoLockSec } = useLock();
-
   const onResetAll = () => {
     Alert.alert(
       'Reset all app data?',
@@ -41,12 +38,6 @@ export default function SettingsScreen({ navigation }) {
       <ScrollView contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>
         <SectionLabel text="Security" />
         <Row
-          icon="lock-closed-outline"
-          title="App lock"
-          subtitle={lockEnabled ? `On · re-lock ${autoLockSec === 0 ? 'always' : `after ${autoLockSec}s`}` : 'Off'}
-          onPress={() => navigation.navigate('LockSetup')}
-        />
-        <Row
           icon="key-outline"
           title="Personal vault"
           subtitle="Encrypted IDs, policies, FDs, SIPs"
@@ -69,10 +60,6 @@ export default function SettingsScreen({ navigation }) {
         <Row icon="cash-outline" title="Loans & EMI reminders" onPress={() => navigation.navigate('Loans')} />
         <Row icon="people-outline" title="Split expenses" onPress={() => navigation.navigate('SplitGroups')} />
         <Row icon="document-text-outline" title="Documents" onPress={() => navigation.navigate('Receipts')} />
-
-        <SectionLabel text="Learn" />
-        <Row icon="school-outline"        title="Courses"          subtitle="Bite-sized finance lessons" onPress={() => navigation.navigate('Courses')} />
-        <Row icon="library-outline"       title="Guides & schemes" subtitle="PPF, ELSS, NPS, govt schemes" onPress={() => navigation.navigate('Guides')} />
 
         <SectionLabel text="Data" />
         <Row

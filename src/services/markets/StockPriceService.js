@@ -1,59 +1,74 @@
-// Alpha Vantage live quote with offline-graceful cache fallback.
-// Cache TTL: 5 min. On API failure we return the last cached price.
-import axios from 'axios';
+// Live stock quote with offline-graceful cache fallback. Cache TTL: 5 min.
+// Backed by Yahoo Finance via StockService — Indian listings are resolved
+// against NSE / BSE using the .NS / .BO suffix derived from the holding's
+// exchange.
 import { SL_TTL } from '../../constants/storageKeys';
 import { getCachedPrice, upsertCachedPrice } from './MarketsDB';
+import { getQuote } from './StockService';
 
-const API_URL = 'https://www.alphavantage.co/query';
-// NOTE: ported from existing Stock Lens build. Move to env when feasible.
-const API_KEY = '02IWDKO0AM3FZ0XG';
+const toYahooSymbol = (sym, exchange) => {
+  const s = String(sym || '');
+  if (/\.(NS|BO)$/i.test(s)) return s;
+  const suffix = String(exchange || 'NSE').toUpperCase() === 'BSE' ? '.BO' : '.NS';
+  return `${s}${suffix}`;
+};
 
-export const fetchStockPrice = async (symbol, opts = {}) => {
+// Accepts (symbol, opts) for backwards compatibility OR (holdingLike, opts)
+// where holdingLike = { symbol, exchange }. The exchange — when known —
+// disambiguates NSE vs BSE listings on Yahoo.
+export const fetchStockPrice = async (input, opts = {}) => {
+  const symbol   = typeof input === 'string' ? input : input?.symbol;
+  const exchange = typeof input === 'string' ? opts.exchange : input?.exchange;
   const { force = false } = opts;
+  if (!symbol) throw new Error('symbol is required');
+
   const cached = await getCachedPrice(symbol);
   if (!force && cached && Date.now() - cached.lastUpdated < SL_TTL.STOCK_PRICE) {
     return cached;
   }
+
   try {
-    const { data } = await axios.get(API_URL, {
-      params: { function: 'GLOBAL_QUOTE', symbol, apikey: API_KEY },
-      timeout: 8000,
-    });
-    const q = data && data['Global Quote'];
-    if (!q || !q['05. price']) {
-      if (cached) return cached;          // stale-on-empty
-      throw new Error('Empty quote');
-    }
+    const yahooSym = toYahooSymbol(symbol, exchange);
+    const q = await getQuote(yahooSym, { force });
+    const current = typeof q.currentPrice === 'number' ? q.currentPrice : 0;
+    const prev    = typeof q.previousClose === 'number' ? q.previousClose : current;
+    const change  = current - prev;
+    const changePercent = prev > 0 ? (change / prev) * 100 : 0;
+
     const price = {
       symbol,
-      currentPrice:  parseFloat(q['05. price']) || 0,
-      change:        parseFloat(q['09. change']) || 0,
-      changePercent: parseFloat(String(q['10. change percent'] || '0').replace('%', '')) || 0,
-      high:          parseFloat(q['03. high']) || undefined,
-      low:           parseFloat(q['04. low'])  || undefined,
-      open:          parseFloat(q['02. open']) || undefined,
-      previousClose: parseFloat(q['08. previous close']) || undefined,
-      volume:        parseInt(q['06. volume'], 10) || undefined,
+      currentPrice:  current,
+      change,
+      changePercent,
+      high:          q.dayHigh,
+      low:           q.dayLow,
+      open:          q.open,
+      previousClose: prev,
       lastUpdated:   Date.now(),
     };
+    if (!current) {
+      if (cached) return cached;
+      throw new Error('Empty quote');
+    }
     await upsertCachedPrice(price);
     return price;
   } catch (err) {
-    if (cached) return cached;            // stale-on-error
+    if (cached) return cached;
     throw err;
   }
 };
 
-export const fetchManyPrices = async (symbols) => {
-  // AV free tier: 5 req/min. Serialise with small delay to stay safe.
+export const fetchManyPrices = async (items) => {
   const out = {};
-  for (const sym of symbols) {
+  for (const item of items) {
+    const sym = typeof item === 'string' ? item : item?.symbol;
+    if (!sym) continue;
     try {
-      out[sym] = await fetchStockPrice(sym);
+      out[sym] = await fetchStockPrice(item);
     } catch {
       out[sym] = null;
     }
-    await new Promise((r) => setTimeout(r, 250));
+    await new Promise((r) => setTimeout(r, 120));
   }
   return out;
 };

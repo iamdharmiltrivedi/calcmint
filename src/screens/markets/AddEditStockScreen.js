@@ -9,14 +9,19 @@ import { COLORS } from '../../constants/colors';
 import { usePortfolioStore } from '../../store/portfolioStore';
 import { useMarketStore } from '../../store/marketStore';
 import { searchMutualFunds, fetchMFNav } from '../../services/markets/MFNavService';
+import { useStockSearch } from '../../hooks/markets/useStockSearch';
+import { useStockQuote } from '../../hooks/markets/useStockQuote';
 import PrimaryButton from '../../components/PrimaryButton';
+
+// Strip Yahoo's exchange suffix so the holding's stored symbol matches
+// what the rest of the app expects (e.g. "RELIANCE", not "RELIANCE.NS").
+const stripSuffix = (sym) => String(sym || '').replace(/\.(NS|BO)$/i, '');
+const toYahooSymbol = (base, exch) => `${base}.${exch === 'BSE' ? 'BO' : 'NS'}`;
 
 const TYPES = [
   { key: 'Stock', label: 'Stock' },
   { key: 'MF',    label: 'Mutual Fund' },
 ];
-const EXCHANGES = ['NSE', 'BSE'];
-
 export default function AddEditStockScreen({ route, navigation }) {
   const { holdingId, prefillSymbol } = route.params || {};
   const editing = !!holdingId;
@@ -48,6 +53,37 @@ export default function AddEditStockScreen({ route, navigation }) {
   const [mfNav, setMfNav]           = useState(null);
   const [mfNavLoading, setMfNavLoading] = useState(false);
   const searchTimer = useRef(null);
+  // Track whether the user has manually edited the buy price so we don't
+  // clobber their input when the NAV / quote resolves a moment later.
+  const buyPriceTouched = useRef(!!existing);
+
+  // Stock search state — mirrors the MF picker, backed by Yahoo Finance.
+  const [stockQuery, setStockQuery] = useState(prefillSymbol || '');
+  const [stockExchange, setStockExchange] = useState('all'); // 'all' | 'NSE' | 'BSE'
+  const [stockSelected, setStockSelected] = useState(
+    existing?.type === 'Stock'
+      ? {
+          symbol: toYahooSymbol(existing.symbol, existing.exchange || 'NSE'),
+          name: existing.name,
+          exchange: existing.exchange || 'NSE',
+        }
+      : null,
+  );
+  const {
+    results: stockResultsRaw,
+    loading: stockSearching,
+    error: stockSearchError,
+    hasMinChars: stockHasMin,
+  } = useStockSearch(stockSelected ? '' : stockQuery);
+  const stockResults = useMemo(
+    () => (stockExchange === 'all'
+      ? stockResultsRaw
+      : stockResultsRaw.filter((r) => r.exchange === stockExchange)),
+    [stockResultsRaw, stockExchange],
+  );
+  const { quote: stockQuote, loading: stockQuoteLoading } = useStockQuote(
+    type === 'Stock' && stockSelected ? stockSelected.symbol : null,
+  );
 
   useEffect(() => {
     if (editing && existing) {
@@ -94,7 +130,13 @@ export default function AddEditStockScreen({ route, navigation }) {
     let cancelled = false;
     setMfNavLoading(true);
     fetchMFNav(String(mfSelected.schemeCode))
-      .then((p) => { if (!cancelled) setMfNav(p); })
+      .then((p) => {
+        if (cancelled) return;
+        setMfNav(p);
+        if (p?.currentPrice && !buyPriceTouched.current) {
+          setBuyPrice(String(p.currentPrice));
+        }
+      })
       .catch(() => { if (!cancelled) setMfNav(null); })
       .finally(() => { if (!cancelled) setMfNavLoading(false); });
     return () => { cancelled = true; };
@@ -107,6 +149,9 @@ export default function AddEditStockScreen({ route, navigation }) {
     setSymbol(code);
     setMfQuery('');
     setMfResults([]);
+    // Fresh fund → re-arm auto-fill so the incoming NAV populates buy price.
+    buyPriceTouched.current = false;
+    setBuyPrice('');
   };
 
   const clearFund = () => {
@@ -114,15 +159,58 @@ export default function AddEditStockScreen({ route, navigation }) {
     setMfNav(null);
     setName('');
     setSymbol('');
+    buyPriceTouched.current = false;
+    setBuyPrice('');
   };
 
   const useNavAsBuyPrice = () => {
-    if (mfNav?.currentPrice) setBuyPrice(String(mfNav.currentPrice));
+    if (mfNav?.currentPrice) {
+      setBuyPrice(String(mfNav.currentPrice));
+      buyPriceTouched.current = true;
+    }
+  };
+
+  // Auto-fill buy price with the latest Yahoo quote when a stock is picked.
+  useEffect(() => {
+    if (type !== 'Stock') return;
+    if (!stockQuote?.currentPrice) return;
+    if (buyPriceTouched.current) return;
+    setBuyPrice(String(stockQuote.currentPrice));
+  }, [type, stockQuote]);
+
+  const pickStock = (item) => {
+    const base = stripSuffix(item.symbol);
+    setStockSelected(item);
+    setName(item.name);
+    setSymbol(base);
+    setExchange(item.exchange);
+    setStockQuery('');
+    buyPriceTouched.current = false;
+    setBuyPrice('');
+  };
+
+  const clearStock = () => {
+    setStockSelected(null);
+    setName('');
+    setSymbol('');
+    setExchange('NSE');
+    buyPriceTouched.current = false;
+    setBuyPrice('');
+  };
+
+  const useQuoteAsBuyPrice = () => {
+    if (stockQuote?.currentPrice) {
+      setBuyPrice(String(stockQuote.currentPrice));
+      buyPriceTouched.current = true;
+    }
   };
 
   const onSave = async () => {
     if (type === 'MF' && !mfSelected) {
       return Alert.alert('Select a fund', 'Search and pick a mutual fund first.');
+    }
+    if (type === 'Stock' && !stockSelected) {
+      return Alert.alert('Select a stock', 'Search and pick a stock first.');
     }
     if (!name.trim() || !symbol.trim()) return Alert.alert('Missing fields', 'Name and symbol are required.');
     const qty = parseFloat(quantity) || 0;
@@ -147,6 +235,9 @@ export default function AddEditStockScreen({ route, navigation }) {
   const onAddToWatchlist = async () => {
     if (type === 'MF' && !mfSelected) {
       return Alert.alert('Select a fund', 'Search and pick a mutual fund first.');
+    }
+    if (type === 'Stock' && !stockSelected) {
+      return Alert.alert('Select a stock', 'Search and pick a stock first.');
     }
     if (!name.trim() || !symbol.trim()) return Alert.alert('Missing fields', 'Name and symbol are required.');
     await addWatch({
@@ -189,6 +280,11 @@ export default function AddEditStockScreen({ route, navigation }) {
                   setMfQuery('');
                   setMfResults([]);
                 }
+                // Reset stock selection when switching away from Stock
+                if (t.key !== 'Stock') {
+                  setStockSelected(null);
+                  setStockQuery('');
+                }
               }}
               activeOpacity={0.85}
             >
@@ -197,31 +293,110 @@ export default function AddEditStockScreen({ route, navigation }) {
           ))}
         </View>
 
-        {/* Stock-only fields */}
+        {/* Stock — search-and-select via Yahoo Finance */}
         {type === 'Stock' && (
           <>
-            <Text style={styles.label}>Exchange</Text>
-            <View style={styles.segment}>
-              {EXCHANGES.map((e) => (
-                <TouchableOpacity
-                  key={e}
-                  style={[styles.segItem, exchange === e && styles.segItemActive]}
-                  onPress={() => setExchange(e)}
-                  activeOpacity={0.85}
-                >
-                  <Text style={[styles.segText, exchange === e && styles.segTextActive]}>{e}</Text>
+            {stockSelected ? (
+              <View style={styles.selectedCard}>
+                <View style={styles.selectedIcon}>
+                  <Ionicons name="stats-chart-outline" size={18} color={COLORS.primary} />
+                </View>
+                <View style={{ flex: 1, minWidth: 0 }}>
+                  <Text style={styles.selectedName} numberOfLines={2}>{stockSelected.name}</Text>
+                  <Text style={styles.selectedMeta}>
+                    {stripSuffix(stockSelected.symbol)} · {stockSelected.exchange}
+                    {stockQuoteLoading
+                      ? ' · price…'
+                      : stockQuote?.currentPrice
+                        ? ` · ₹${stockQuote.currentPrice.toFixed(2)}`
+                        : ''}
+                  </Text>
+                </View>
+                <TouchableOpacity onPress={clearStock} style={styles.changeBtn} activeOpacity={0.85}>
+                  <Text style={styles.changeText}>Change</Text>
                 </TouchableOpacity>
-              ))}
-            </View>
+              </View>
+            ) : (
+              <>
+                <Text style={styles.label}>Search stock</Text>
+                <View style={styles.searchWrap}>
+                  <Ionicons name="search" size={16} color={COLORS.subtext} style={{ marginRight: 8 }} />
+                  <TextInput
+                    style={styles.searchInput}
+                    placeholder="e.g. Reliance, HDFC, TCS, INFY"
+                    placeholderTextColor={COLORS.faint}
+                    value={stockQuery}
+                    onChangeText={setStockQuery}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                  />
+                  {stockSearching ? <ActivityIndicator size="small" color={COLORS.primary} /> : null}
+                </View>
 
-            <Field label="Name" value={name} onChangeText={setName} placeholder="HDFC Bank Ltd" />
-            <Field
-              label="Symbol"
-              value={symbol}
-              onChangeText={(t) => setSymbol(t.toUpperCase())}
-              placeholder="HDFCBANK"
-              autoCapitalize="characters"
-            />
+                {/* Exchange filter chips */}
+                {stockHasMin && stockResultsRaw.length > 0 && (
+                  <View style={styles.chipRow}>
+                    {[
+                      { key: 'all', label: 'All',  count: stockResultsRaw.length },
+                      { key: 'NSE', label: 'NSE',  count: stockResultsRaw.filter((r) => r.exchange === 'NSE').length },
+                      { key: 'BSE', label: 'BSE',  count: stockResultsRaw.filter((r) => r.exchange === 'BSE').length },
+                    ].map((c) => {
+                      const active = stockExchange === c.key;
+                      return (
+                        <TouchableOpacity
+                          key={c.key}
+                          onPress={() => setStockExchange(c.key)}
+                          style={[styles.chip, active && styles.chipActive]}
+                          activeOpacity={0.85}
+                        >
+                          <Text style={[styles.chipText, active && styles.chipTextActive]}>
+                            {c.label} <Text style={[styles.chipCount, active && styles.chipCountActive]}>{c.count}</Text>
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                )}
+
+                {stockSearchError ? (
+                  <Text style={styles.emptyHint}>{stockSearchError}</Text>
+                ) : null}
+                {!stockHasMin && !stockSearchError ? (
+                  <Text style={styles.emptyHint}>Type 2+ characters to search NSE & BSE.</Text>
+                ) : null}
+                {stockHasMin && !stockSearching && !stockSearchError && stockResultsRaw.length === 0 ? (
+                  <Text style={styles.emptyHint}>No matches. Try the company name or ticker.</Text>
+                ) : null}
+                {stockHasMin && !stockSearching && stockResultsRaw.length > 0 && stockResults.length === 0 ? (
+                  <Text style={styles.emptyHint}>
+                    No {stockExchange} matches — tap “All” to widen the filter.
+                  </Text>
+                ) : null}
+
+                {stockResults.length > 0 && (
+                  <View style={styles.resultList}>
+                    {stockResults.slice(0, 12).map((r) => (
+                      <TouchableOpacity
+                        key={`${r.exchange}:${r.symbol}`}
+                        style={styles.resultRow}
+                        onPress={() => pickStock(r)}
+                        activeOpacity={0.85}
+                      >
+                        <View style={{ flex: 1, minWidth: 0 }}>
+                          <Text style={styles.resultName} numberOfLines={2}>{r.name}</Text>
+                          <Text style={styles.resultMeta}>{r.symbol}</Text>
+                        </View>
+                        <View style={[styles.exBadge, r.exchange === 'NSE' ? styles.exNse : styles.exBse]}>
+                          <Text style={[styles.exBadgeText, r.exchange === 'NSE' ? styles.exNseText : styles.exBseText]}>
+                            {r.exchange}
+                          </Text>
+                        </View>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                )}
+              </>
+            )}
           </>
         )}
 
@@ -296,8 +471,14 @@ export default function AddEditStockScreen({ route, navigation }) {
         <Field
           label="Avg buy price (₹)"
           value={buyPrice}
-          onChangeText={setBuyPrice}
-          placeholder={type === 'MF' && navText ? `Latest NAV ${navText}` : '1500'}
+          onChangeText={(v) => { buyPriceTouched.current = true; setBuyPrice(v); }}
+          placeholder={
+            type === 'MF' && navText
+              ? `Latest NAV ${navText}`
+              : type === 'Stock' && stockQuote?.currentPrice
+                ? `Latest ₹${stockQuote.currentPrice.toFixed(2)}`
+                : '1500'
+          }
           keyboardType="decimal-pad"
         />
 
@@ -305,6 +486,13 @@ export default function AddEditStockScreen({ route, navigation }) {
           <TouchableOpacity onPress={useNavAsBuyPrice} style={styles.navBtn} activeOpacity={0.85}>
             <Ionicons name="flash-outline" size={14} color={COLORS.primary} />
             <Text style={styles.navBtnText}>Use latest NAV as buy price</Text>
+          </TouchableOpacity>
+        ) : null}
+
+        {type === 'Stock' && stockSelected && stockQuote?.currentPrice ? (
+          <TouchableOpacity onPress={useQuoteAsBuyPrice} style={styles.navBtn} activeOpacity={0.85}>
+            <Ionicons name="flash-outline" size={14} color={COLORS.primary} />
+            <Text style={styles.navBtnText}>Use latest price as buy price</Text>
           </TouchableOpacity>
         ) : null}
 
@@ -380,6 +568,26 @@ const styles = StyleSheet.create({
   },
   resultName: { fontSize: 13, color: COLORS.text, fontWeight: '700' },
   resultMeta: { fontSize: 11, color: COLORS.subtext, marginTop: 2, fontWeight: '600' },
+
+  // Exchange badge — used in stock search results / selected card
+  exBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 999 },
+  exNse:   { backgroundColor: COLORS.primarySoft },
+  exBse:   { backgroundColor: COLORS.goldSoft },
+  exBadgeText: { fontSize: 10, fontWeight: '800', letterSpacing: 0.4 },
+  exNseText: { color: COLORS.primary },
+  exBseText: { color: COLORS.gold },
+
+  // Exchange filter chips above the stock results list
+  chipRow: { flexDirection: 'row', gap: 6, marginTop: 10 },
+  chip: {
+    paddingHorizontal: 12, paddingVertical: 6, borderRadius: 999,
+    backgroundColor: COLORS.card, borderWidth: 1, borderColor: COLORS.border,
+  },
+  chipActive:     { backgroundColor: COLORS.primary, borderColor: COLORS.primary },
+  chipText:       { fontSize: 11.5, fontWeight: '800', color: COLORS.subtext },
+  chipTextActive: { color: '#fff' },
+  chipCount:      { fontSize: 11, fontWeight: '700', color: COLORS.faint },
+  chipCountActive:{ color: 'rgba(255,255,255,0.8)' },
 
   selectedCard: {
     flexDirection: 'row', alignItems: 'center', gap: 12,

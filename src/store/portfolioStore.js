@@ -65,11 +65,14 @@ export const usePortfolioStore = create((set, get) => ({
     const h = holdings.find((x) => x.id === id);
     if (!h) return null;
     const p = prices[h.symbol];
-    const currentPrice  = p ? p.currentPrice : h.buyPrice;
+    const hasLivePrice  = !!(p && typeof p.currentPrice === 'number' && p.currentPrice > 0);
+    const currentPrice  = hasLivePrice ? p.currentPrice : h.buyPrice;
     const currentValue  = currentPrice * h.quantity;
     const investedValue = h.buyPrice    * h.quantity;
     const profitLoss    = currentValue - investedValue;
     const profitLossPercent = investedValue > 0 ? (profitLoss / investedValue) * 100 : 0;
+    const dayChange         = hasLivePrice && typeof p.change === 'number' ? p.change : 0;
+    const dayChangePercent  = hasLivePrice && typeof p.changePercent === 'number' ? p.changePercent : 0;
     return {
       holding: h,
       currentPrice,
@@ -77,6 +80,10 @@ export const usePortfolioStore = create((set, get) => ({
       investedValue,
       profitLoss,
       profitLossPercent,
+      dayChange,
+      dayChangePercent,
+      hasLivePrice,
+      priceUpdatedAt: hasLivePrice ? p.lastUpdated : 0,
       aiAnalysis: analyses[h.symbol] || null,
     };
   },
@@ -85,7 +92,8 @@ export const usePortfolioStore = create((set, get) => ({
     const { holdings, prices, analyses } = get();
     return holdings.map((h) => {
       const p = prices[h.symbol];
-      const cp = p ? p.currentPrice : h.buyPrice;
+      const hasLivePrice = !!(p && typeof p.currentPrice === 'number' && p.currentPrice > 0);
+      const cp = hasLivePrice ? p.currentPrice : h.buyPrice;
       const cv = cp * h.quantity;
       const iv = h.buyPrice * h.quantity;
       const pl = cv - iv;
@@ -96,6 +104,10 @@ export const usePortfolioStore = create((set, get) => ({
         investedValue: iv,
         profitLoss: pl,
         profitLossPercent: iv > 0 ? (pl / iv) * 100 : 0,
+        dayChange: hasLivePrice && typeof p.change === 'number' ? p.change : 0,
+        dayChangePercent: hasLivePrice && typeof p.changePercent === 'number' ? p.changePercent : 0,
+        hasLivePrice,
+        priceUpdatedAt: hasLivePrice ? p.lastUpdated : 0,
         aiAnalysis: analyses[h.symbol] || null,
       };
     });

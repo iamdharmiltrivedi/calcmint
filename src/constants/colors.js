@@ -1,4 +1,5 @@
 import { Platform } from 'react-native';
+import { FONT_FAMILIES } from '../theme/fonts';
 
 // ── Design tokens — Finance Calculator Redesign (offline-first) ──────────────
 export const COLORS = {
@@ -86,34 +87,55 @@ export const CATEGORY = {
   orange: { c: '#D97A3A', soft: '#FAEADC' },
 };
 
-// Typography — degrades to system fonts; replace if expo-font is added later.
-export const FONTS = Platform.select({
-  ios: {
-    sans:  'System',
-    mono:  'Menlo',
-  },
-  android: {
-    sans:  'sans-serif',
-    mono:  'monospace',
-  },
-});
+// Typography — Inter only. Numeric values get weight (SemiBold / Bold)
+// for emphasis, matching Indian fintech apps (INDmoney, Groww, Upstox,
+// Zerodha, Angel One). The actual token definitions live in
+// src/theme/typography.js; this file exposes the weight aliases so
+// legacy inline styles keep resolving without a per-screen rewrite.
+//
+// Convention: `fontFamily` carries the weight (Inter_700Bold etc.).
+// The React Native `fontWeight` prop is redundant but kept on legacy
+// styles so nothing visually shifts if we missed a swap.
+export const FONTS = {
+  sans:         FONT_FAMILIES.interRegular,
+  sansMedium:   FONT_FAMILIES.interMedium,
+  sansSemiBold: FONT_FAMILIES.interSemiBold,
+  sansBold:     FONT_FAMILIES.interBold,
 
+  // Legacy aliases — these once pointed at JetBrains Mono. Re-targeted
+  // to Inter weights so MONO_STYLE / FONTS.mono call sites still render
+  // the right thing. New code should ignore them and use AppNumber.
+  mono:         FONT_FAMILIES.interSemiBold,
+  monoMedium:   FONT_FAMILIES.interMedium,
+  monoSemiBold: FONT_FAMILIES.interSemiBold,
+  monoBold:     FONT_FAMILIES.interBold,
+};
+
+// Numeric / financial values used to be set via MONO_STYLE. We keep the
+// export name (it's referenced in ~20 legacy screens) but it now resolves
+// to Inter SemiBold with tabular-nums for column alignment.
 export const MONO_STYLE = {
-  fontFamily: FONTS.mono,
+  fontFamily:  FONTS.sansSemiBold,
   fontVariant: ['tabular-nums'],
 };
 
+// Drop-in for text labels — same family as the global default, exported
+// for stylesheets that prefer composition over relying on Text defaults.
+export const SANS_STYLE = {
+  fontFamily: FONTS.sans,
+};
+
 // ── Type scale per redesign spec ───────────────────────────────────────
-// Use TYPE.headline / TYPE.body / TYPE.label / TYPE.caption everywhere
-// new code is written. Existing screens keep their inline sizes; this is
-// the source of truth for any new component.
+// Legacy alias kept for screens that already import TYPE.*. New code
+// should pull tokens from `src/theme/typography.js` (TYPOGRAPHY.*) or use
+// the AppText / SectionTitle / ScreenTitle components.
 export const TYPE = {
-  headline: { fontSize: 24, fontWeight: '800', letterSpacing: -0.4, color: COLORS.text },
-  body:     { fontSize: 16, fontWeight: '600', color: COLORS.text },
-  label:    { fontSize: 13, fontWeight: '700', color: COLORS.text },
-  caption:  { fontSize: 11, fontWeight: '600', color: COLORS.subtext },
+  headline: { fontFamily: FONTS.sansBold,     fontSize: 24, letterSpacing: -0.4, color: COLORS.text },
+  body:     { fontFamily: FONTS.sansSemiBold, fontSize: 16, color: COLORS.text },
+  label:    { fontFamily: FONTS.sansSemiBold, fontSize: 13, color: COLORS.text },
+  caption:  { fontFamily: FONTS.sansMedium,   fontSize: 11, color: COLORS.subtext },
   // 11px uppercase section header — letter-spacing 0.06em ≈ 0.66px
-  section:  { fontSize: 11, fontWeight: '800', letterSpacing: 0.66, color: '#888888', textTransform: 'uppercase' },
+  section:  { fontFamily: FONTS.sansBold,     fontSize: 11, letterSpacing: 0.66, color: '#888888', textTransform: 'uppercase' },
 };
 
 // ── Card token per spec: white, 12px radius, 0.5px hairline, 16px pad ─

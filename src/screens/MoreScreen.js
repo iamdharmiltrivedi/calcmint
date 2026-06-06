@@ -3,12 +3,10 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-nati
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../constants/colors';
-import { useLock } from '../context/LockContext';
 import BrandHeader from '../components/BrandHeader';
 
 const ITEMS = [
   // Security
-  { section: 'Security',  icon: 'lock-closed-outline', title: 'App lock',          subtitle: null, route: 'LockSetup' },
   { section: 'Security',  icon: 'key-outline',         title: 'Personal vault',    subtitle: 'Encrypted IDs, policies, FDs', route: 'Vault' },
 
   // Smart
@@ -28,20 +26,14 @@ const ITEMS = [
   // Account
   { section: 'Account',   icon: 'cloud-upload-outline', title: 'Backup & restore', subtitle: 'Encrypted backups',           route: 'BackupRestore' },
   { section: 'Account',   icon: 'person-outline',      title: 'Account',           subtitle: 'Profile & sign out',          route: 'Account' },
-  { section: 'Account',   icon: 'settings-outline',    title: 'Settings',          subtitle: 'Theme, currency, more',       route: 'Settings' },
 ];
 
 export default function MoreScreen({ navigation }) {
-  const { lockEnabled, autoLockSec } = useLock();
   const sections = Array.from(new Set(ITEMS.map((i) => i.section)));
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
-      <BrandHeader
-        rightActions={[
-          { icon: 'settings-outline', label: 'Settings', onPress: () => navigation.navigate('Settings') },
-        ]}
-      />
+      <BrandHeader />
 
       <ScrollView contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>
         {sections.map((sec) => (
@@ -52,9 +44,7 @@ export default function MoreScreen({ navigation }) {
                 key={item.title}
                 icon={item.icon}
                 title={item.title}
-                subtitle={item.title === 'App lock'
-                  ? (lockEnabled ? `On · re-lock ${autoLockSec === 0 ? 'always' : `after ${autoLockSec}s`}` : 'Off')
-                  : item.subtitle}
+                subtitle={item.subtitle}
                 onPress={() => navigation.navigate(item.route)}
               />
             ))}

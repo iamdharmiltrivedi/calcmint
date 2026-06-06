@@ -1,8 +1,9 @@
 import React from 'react';
-import { TouchableOpacity, Text, StyleSheet, ActivityIndicator, View } from 'react-native';
+import { TouchableOpacity, StyleSheet, ActivityIndicator, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../constants/colors';
+import { AppText } from './typography';
 
 const PrimaryButton = ({
   title, onPress, loading = false, disabled = false, gradient, style,
@@ -15,7 +16,7 @@ const PrimaryButton = ({
         <ActivityIndicator color="#fff" size="small" />
       ) : (
         <>
-          <Text style={styles.label}>{title}</Text>
+          <AppText variant="button" color="#fff" style={styles.label}>{title}</AppText>
           {iconRight ? (
             <Ionicons name={iconRight} size={16} color="#fff" />
           ) : null}
@@ -63,7 +64,7 @@ const styles = StyleSheet.create({
   innerRow: {
     flexDirection: 'row', alignItems: 'center', gap: 8,
   },
-  label: { color: '#fff', fontSize: 15, fontWeight: '700', letterSpacing: 0.2 },
+  label: { letterSpacing: 0.2 },
 });
 
 export default PrimaryButton;

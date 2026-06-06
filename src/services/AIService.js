@@ -1,39 +1,40 @@
-// ── AIService — single entry point for every Claude call ──────────────
+// ── AIService — direct HuggingFace inference for every AI call ────────
 //
-// Architecture: the React Native app NEVER talks to the Anthropic API
-// directly. All calls go through our backend proxy at
-// `${PROXY_URL}/api/ai`, which holds the actual ANTHROPIC_API_KEY and
-// runs the prompt templates. The backend is responsible for picking
-// the model (target: claude-sonnet-4-20250514) and the right max_tokens
-// per call type (800 for stock, 400 for nudges, 1000 for chat).
+// Architecture: the React Native app calls HuggingFace's OpenAI-compatible
+// router endpoint directly with an API key shipped in the JS bundle. The
+// key is read from `process.env.EXPO_PUBLIC_HUGGING_FACE_API_KEY` (only
+// vars prefixed `EXPO_PUBLIC_` are exposed to the bundle).
 //
-// Why a proxy:
-//  • API key cannot ship in the JS bundle (it would be extractable)
-//  • central place to enforce server-side cost caps and abuse rules
-//  • lets us swap models / prompt templates without an app release
+// Trade-off vs. the previous backend proxy:
+//   + works offline-of-our-infra — no server to keep alive
+//   - the HF key is extractable from the APK (rotate-able, low-risk on
+//     free tier, but treat as sensitive)
 //
-// Client responsibilities:
-//  • build a compact user context (under ~800 tokens) and ship it as
-//    JSON in every call so Claude has personalised grounding
-//  • enforce a soft daily call cap for free-tier users
-//  • cache responses where it makes sense (nudge: 6 h)
+// Each public method builds a prompt + system instruction, calls the
+// chat-completions endpoint, and parses the model's JSON reply. Shapes
+// returned to callers match the old proxy contract exactly so stores /
+// screens don't need to change.
 //
 // Failure model: every public method returns a Promise that resolves
 // with a defensible fallback rather than throwing — UI screens stay
-// usable when the backend is unreachable.
+// usable when HF is unreachable or rate-limited.
 
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import * as SecureStore from 'expo-secure-store';
 import StorageService from './StorageService';
 import { usePortfolioStore } from '../store/portfolioStore';
 import { useMarketStore } from '../store/marketStore';
 import { summarizeLoan, totalMonthlyObligation } from '../utils/loans';
 
 // ── Configuration ─────────────────────────────────────────────────────
-const DEFAULT_PROXY = 'https://aistocklens.com/api/ai';
-const PROXY_OVERRIDE_KEY = '@ai_proxy_url';   // AsyncStorage — dev override
-const AUTH_TOKEN_KEY     = 'ai_auth_token';   // SecureStore — bearer if logged in
+const HF_ENDPOINT = 'https://router.huggingface.co/v1/chat/completions';
+// Override via .env: EXPO_PUBLIC_HUGGING_FACE_MODEL=<provider-qualified>
+// The default below uses the Novita provider for Llama 3.1 8B — a free
+// tier on the HF router for most accounts. If your account doesn't have
+// access (you'll see a 401/403/404 in the Metro logs), pick another
+// model your account is provisioned for from
+// https://huggingface.co/models?inference_provider=all&pipeline_tag=text-generation
+const HF_MODEL = (process.env.EXPO_PUBLIC_HUGGING_FACE_MODEL || 'meta-llama/Llama-3.1-8B-Instruct:novita').trim();
 
 const STORAGE = {
   USAGE: '@ai_usage',          // { date: 'YYYY-MM-DD', count: N }
@@ -41,26 +42,15 @@ const STORAGE = {
   PRO:   '@ai_pro',            // 'true' | 'false'
 };
 
-export const DAILY_LIMIT_FREE = 5;
+export const DAILY_LIMIT_FREE = 30;
 export const NUDGE_TTL_MS = 6 * 60 * 60 * 1000;
-
-// Backend type tags. Keep these in sync with the proxy's switch.
-const TYPE = {
-  ANALYZE_STOCK:     'analyzeStock',
-  FINANCE_INSIGHT:   'financeInsight',
-  DASHBOARD_NUDGE:   'dashboardNudge',
-  ANALYZE_PORTFOLIO: 'analyzePortfolio',
-  CHAT:              'chat',
-  GOAL_ADVICE:       'goalAdvice',
-  GENERATE_NEWS:     'generateNews',
-};
 
 // Errors are tagged so screens can branch on intent (offline vs limit
 // vs malformed) without parsing strings.
 export class AIError extends Error {
   constructor(kind, message, extra = {}) {
     super(message);
-    this.kind = kind;        // 'rate_limit' | 'network' | 'bad_response' | 'limit_reached'
+    this.kind = kind;        // 'rate_limit' | 'network' | 'bad_response' | 'limit_reached' | 'config'
     Object.assign(this, extra);
   }
 }
@@ -104,21 +94,15 @@ export const getUsageInfo = async () => {
   };
 };
 
-const getProxyUrl = async () => {
-  try {
-    const override = await AsyncStorage.getItem(PROXY_OVERRIDE_KEY);
-    if (override && override.trim()) return override.trim();
-  } catch {}
-  return DEFAULT_PROXY;
+// ── HuggingFace client ────────────────────────────────────────────────
+const getApiKey = () => {
+  const k = process.env.EXPO_PUBLIC_HUGGING_FACE_API_KEY;
+  return typeof k === 'string' && k.trim() ? k.trim() : null;
 };
 
-export const setProxyUrlOverride = (url) =>
-  AsyncStorage.setItem(PROXY_OVERRIDE_KEY, url);
-
-// ── Core proxy call ────────────────────────────────────────────────────
-// `cached: true` skips both the usage gate and the increment — useful
-// when the caller already consumed cache (e.g. the 6 h nudge cache).
-const callProxy = async (type, payload, { skipLimit = false } = {}) => {
+// Single chat-completions call. `messages` follows the OpenAI shape.
+// Returns the assistant message string (raw — caller parses JSON if needed).
+const callHuggingFace = async (messages, { maxTokens = 800, temperature = 0.3, skipLimit = false } = {}) => {
   if (!skipLimit) {
     const info = await getUsageInfo();
     if (!info.pro && info.remaining <= 0) {
@@ -126,33 +110,72 @@ const callProxy = async (type, payload, { skipLimit = false } = {}) => {
     }
   }
 
-  let authToken;
-  try { authToken = await SecureStore.getItemAsync(AUTH_TOKEN_KEY); } catch {}
+  const apiKey = getApiKey();
+  if (!apiKey) {
+    throw new AIError('config', 'HuggingFace API key missing — set EXPO_PUBLIC_HUGGING_FACE_API_KEY');
+  }
 
-  const url = await getProxyUrl();
   try {
     const { data } = await axios.post(
-      url,
-      { type, payload },
+      HF_ENDPOINT,
+      {
+        model: HF_MODEL,
+        messages,
+        max_tokens: maxTokens,
+        temperature,
+      },
       {
         headers: {
+          Authorization: `Bearer ${apiKey}`,
           'Content-Type': 'application/json',
-          ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
         },
         timeout: 25000,
       },
     );
+    const content = data?.choices?.[0]?.message?.content;
+    if (typeof content !== 'string' || !content.trim()) {
+      throw new AIError('bad_response', 'Empty completion');
+    }
     if (!skipLimit) await incrementUsage();
-    return data;
+    return content;
   } catch (err) {
-    if (err instanceof AIError) throw err;
-    throw new AIError('network', err.message || 'Network error', { cause: err });
+    if (err instanceof AIError) {
+      console.warn('[AIService] HF call failed', err.kind, err.message);
+      throw err;
+    }
+    const status = err?.response?.status;
+    const body   = err?.response?.data;
+    console.warn('[AIService] HF call failed', { status, body, message: err?.message });
+    if (status === 429) {
+      throw new AIError('rate_limit', 'HuggingFace rate-limited', { status });
+    }
+    if (status === 401 || status === 403) {
+      throw new AIError('config', 'HuggingFace key rejected (check it has Inference Providers access)', { status });
+    }
+    if (status === 404) {
+      throw new AIError('config', `Model ${HF_MODEL} not found — set EXPO_PUBLIC_HUGGING_FACE_MODEL`, { status });
+    }
+    throw new AIError('network', err.message || 'Network error', { cause: err, status });
+  }
+};
+
+// Extracts the first JSON object out of an LLM reply. Handles plain JSON,
+// fenced ```json blocks, and prose-wrapped JSON.
+const parseJsonReply = (text) => {
+  if (typeof text !== 'string') return null;
+  const stripped = text.replace(/```json/gi, '').replace(/```/g, '').trim();
+  try {
+    return JSON.parse(stripped);
+  } catch {
+    const m = stripped.match(/\{[\s\S]*\}/);
+    if (m) {
+      try { return JSON.parse(m[0]); } catch {}
+    }
+    return null;
   }
 };
 
 // ── Context builder ────────────────────────────────────────────────────
-// Compact JSON snapshot of the user. The whole object should comfortably
-// fit under ~800 tokens — keep arrays bounded (top 3) and round numbers.
 const CYCLE_MONTHS = { monthly: 1, quarterly: 3, yearly: 12 };
 
 export const buildUserContext = async () => {
@@ -191,7 +214,6 @@ export const buildUserContext = async () => {
     ? Math.max(0, Math.round(monthlyIncome - monthSpend - totalEMI - activeSubs))
     : null;
 
-  // Portfolio + watchlist from zustand singletons.
   const port    = usePortfolioStore.getState();
   const market  = useMarketStore.getState();
   const summary = port.getSummary();
@@ -237,15 +259,40 @@ export const buildUserContext = async () => {
   };
 };
 
+// ── System prompt shared by JSON-returning calls ──────────────────────
+const JSON_SYSTEM = 'You are a careful Indian-markets financial analyst. Respond ONLY with valid JSON matching the schema in the user message. No prose, no markdown fences, no commentary outside the JSON object.';
+
 // ── Public methods ─────────────────────────────────────────────────────
 
 // analyzeStock returns: { verdict, confidence, reasons[], risks[], targetPrice, timeHorizon }
-// Verdict is one of 'BUY' | 'HOLD' | 'SELL'. Confidence is 0–100.
 export const analyzeStock = async (symbol, fundamentals = {}, userContextOverride) => {
   const userContext = userContextOverride || await buildUserContext();
   try {
-    const data = await callProxy(TYPE.ANALYZE_STOCK, { symbol, fundamentals, userContext });
-    return normaliseStockAnalysis(data, symbol);
+    const text = await callHuggingFace(
+      [
+        { role: 'system', content: JSON_SYSTEM },
+        {
+          role: 'user',
+          content:
+`Analyse the Indian ${fundamentals?.type === 'MF' ? 'mutual fund' : 'stock'} ${symbol} for this investor.
+
+Fundamentals: ${JSON.stringify(fundamentals)}
+Investor snapshot: ${JSON.stringify(userContext)}
+
+Return JSON exactly in this schema:
+{
+  "verdict": "BUY" | "HOLD" | "SELL",
+  "confidence": <integer 0-100>,
+  "reasons": [up to 3 short strings, each <120 chars],
+  "risks": [up to 2 short strings, each <120 chars],
+  "targetPrice": <number in INR or null>,
+  "timeHorizon": "<e.g. 6-12 months>"
+}`,
+        },
+      ],
+      { maxTokens: 600, temperature: 0.4 },
+    );
+    return normaliseStockAnalysis(parseJsonReply(text), symbol);
   } catch (err) {
     return offlineStockAnalysis(symbol, err);
   }
@@ -254,15 +301,36 @@ export const analyzeStock = async (symbol, fundamentals = {}, userContextOverrid
 // getFinanceInsight returns: { insight, actionSuggestion, urgency }
 export const getFinanceInsight = async (expenseData, loanData, portfolioData, goals) => {
   try {
-    const data = await callProxy(TYPE.FINANCE_INSIGHT, {
-      expenseData, loanData, portfolioData, goals,
-    });
+    const text = await callHuggingFace(
+      [
+        { role: 'system', content: JSON_SYSTEM },
+        {
+          role: 'user',
+          content:
+`Generate one personal-finance insight for this user.
+
+Expenses: ${JSON.stringify(expenseData)}
+Loans: ${JSON.stringify(loanData)}
+Portfolio: ${JSON.stringify(portfolioData)}
+Goals: ${JSON.stringify(goals)}
+
+Return JSON:
+{
+  "insight": "<one sentence, <180 chars>",
+  "actionSuggestion": "<one short next step or null>",
+  "urgency": "low" | "medium" | "high"
+}`,
+        },
+      ],
+      { maxTokens: 300, temperature: 0.5 },
+    );
+    const data = parseJsonReply(text) || {};
     return {
-      insight: data?.insight || String(data || '').slice(0, 200),
-      actionSuggestion: data?.actionSuggestion || null,
-      urgency: data?.urgency || 'low',
+      insight: String(data.insight || '').slice(0, 200) || 'No insight available right now.',
+      actionSuggestion: data.actionSuggestion || null,
+      urgency: ['low', 'medium', 'high'].includes(data.urgency) ? data.urgency : 'low',
     };
-  } catch (err) {
+  } catch {
     return {
       insight: 'Insight unavailable — reconnect to refresh.',
       actionSuggestion: null,
@@ -272,9 +340,7 @@ export const getFinanceInsight = async (expenseData, loanData, portfolioData, go
   }
 };
 
-// getDailyDashboardNudge returns a single string (max 80 chars).
-// Cached for 6h. The cache lookup runs BEFORE the rate-limit gate so
-// returning a cached nudge does not consume the user's daily quota.
+// getDailyDashboardNudge returns a single string (max 80 chars). Cached 6h.
 export const getDailyDashboardNudge = async (monthExpenses, monthBudget, portfolioChange) => {
   try {
     const raw = await AsyncStorage.getItem(STORAGE.NUDGE);
@@ -287,10 +353,25 @@ export const getDailyDashboardNudge = async (monthExpenses, monthBudget, portfol
   } catch {}
 
   try {
-    const data = await callProxy(TYPE.DASHBOARD_NUDGE, {
-      monthExpenses, monthBudget, portfolioChange,
-    });
-    const nudge = String(data?.nudge ?? data ?? '').replace(/^["']|["']$/g, '').slice(0, 80);
+    const text = await callHuggingFace(
+      [
+        {
+          role: 'system',
+          content: 'You write one punchy finance nudge for an Indian retail investor. Max 80 characters. No quotes, no emojis, no markdown — return only the sentence.',
+        },
+        {
+          role: 'user',
+          content:
+`Month expenses: ${JSON.stringify(monthExpenses)}
+Month budget: ${JSON.stringify(monthBudget)}
+Portfolio: ${JSON.stringify(portfolioChange)}
+
+Write the nudge.`,
+        },
+      ],
+      { maxTokens: 80, temperature: 0.7 },
+    );
+    const nudge = String(text || '').replace(/^["']|["']$/g, '').replace(/\n.*$/s, '').slice(0, 80).trim();
     if (nudge) {
       await AsyncStorage.setItem(STORAGE.NUDGE, JSON.stringify({ ts: Date.now(), nudge }));
     }
@@ -306,13 +387,34 @@ export const clearNudgeCache = () => AsyncStorage.removeItem(STORAGE.NUDGE);
 // analyzePortfolio returns: { rebalanceSuggestions[], riskLevel, healthScore }
 export const analyzePortfolio = async (holdings, monthlyIncome, monthlyExpenses, goals) => {
   try {
-    const data = await callProxy(TYPE.ANALYZE_PORTFOLIO, {
-      holdings, monthlyIncome, monthlyExpenses, goals,
-    });
+    const text = await callHuggingFace(
+      [
+        { role: 'system', content: JSON_SYSTEM },
+        {
+          role: 'user',
+          content:
+`Review this Indian retail investor's portfolio and give rebalancing advice.
+
+Holdings: ${JSON.stringify(holdings)}
+Monthly income: ${JSON.stringify(monthlyIncome)}
+Monthly expenses: ${JSON.stringify(monthlyExpenses)}
+Goals: ${JSON.stringify(goals)}
+
+Return JSON:
+{
+  "rebalanceSuggestions": [up to 5 short strings, each <140 chars],
+  "riskLevel": "conservative" | "moderate" | "aggressive",
+  "healthScore": <integer 0-100>
+}`,
+        },
+      ],
+      { maxTokens: 500, temperature: 0.4 },
+    );
+    const data = parseJsonReply(text) || {};
     return {
-      rebalanceSuggestions: Array.isArray(data?.rebalanceSuggestions) ? data.rebalanceSuggestions.slice(0, 5) : [],
-      riskLevel:   data?.riskLevel || 'moderate',
-      healthScore: Math.max(0, Math.min(100, Number(data?.healthScore) || 50)),
+      rebalanceSuggestions: Array.isArray(data.rebalanceSuggestions) ? data.rebalanceSuggestions.slice(0, 5) : [],
+      riskLevel:   data.riskLevel || 'moderate',
+      healthScore: Math.max(0, Math.min(100, Number(data.healthScore) || 50)),
     };
   } catch {
     return { rebalanceSuggestions: [], riskLevel: 'moderate', healthScore: 50, offline: true };
@@ -323,13 +425,24 @@ export const analyzePortfolio = async (holdings, monthlyIncome, monthlyExpenses,
 // `conversationHistory` are sent; the rest are trimmed to save tokens.
 export const chatMessage = async (userMessage, conversationHistory = [], fullContextOverride) => {
   const context = fullContextOverride || await buildUserContext();
-  const history = (conversationHistory || []).slice(-10);
+  const history = (conversationHistory || []).slice(-10).map((m) => ({
+    role: m.role === 'assistant' || m.role === 'system' ? m.role : 'user',
+    content: String(m.content || m.text || '').slice(0, 1500),
+  }));
   try {
-    const data = await callProxy(TYPE.CHAT, {
-      userMessage, conversationHistory: history, context,
-    });
-    if (typeof data === 'string') return data;
-    return data?.reply || data?.response || data?.message || '';
+    const text = await callHuggingFace(
+      [
+        {
+          role: 'system',
+          content:
+`You are CalcMint, a friendly Indian personal-finance assistant. Be concise (under 120 words unless asked for detail). Speak in INR. Never invent numbers — if you don't know, say so. The user's current snapshot is: ${JSON.stringify(context)}`,
+        },
+        ...history,
+        { role: 'user', content: String(userMessage || '').slice(0, 2000) },
+      ],
+      { maxTokens: 600, temperature: 0.6 },
+    );
+    return text;
   } catch (err) {
     if (err.kind === 'limit_reached') {
       return 'You’ve hit today’s free AI limit. Upgrade to Pro to keep chatting — your conversation is saved.';
@@ -338,20 +451,35 @@ export const chatMessage = async (userMessage, conversationHistory = [], fullCon
   }
 };
 
-// generateNewsForHolding returns an array of news items in the shape
+// generateNewsForHolding returns up to 4 items:
 //   { title, summary, source, sentiment: 'Positive'|'Neutral'|'Negative' }
-// Up to 4 items. NewsService applies the ids/timestamps and persists.
-// When the proxy is unreachable we return an empty array so the caller
-// can fall back to local templates instead of showing a broken state.
 export const generateNewsForHolding = async (holding) => {
   try {
-    const data = await callProxy(TYPE.GENERATE_NEWS, {
-      symbol:   holding.symbol,
-      name:     holding.name,
-      type:     holding.type,
-      exchange: holding.exchange,
-    });
-    const items = Array.isArray(data) ? data : (data?.items || []);
+    const text = await callHuggingFace(
+      [
+        { role: 'system', content: JSON_SYSTEM },
+        {
+          role: 'user',
+          content:
+`Write up to 4 plausible recent news headlines for the Indian ${holding.type === 'MF' ? 'mutual fund' : 'stock'} ${holding.symbol} (${holding.name}, ${holding.exchange}).
+
+Return JSON:
+{
+  "items": [
+    {
+      "title": "<headline, <120 chars>",
+      "summary": "<2-sentence summary, <240 chars>",
+      "source": "<plausible Indian outlet, e.g. Mint, ET Markets>",
+      "sentiment": "Positive" | "Neutral" | "Negative"
+    }
+  ]
+}`,
+        },
+      ],
+      { maxTokens: 600, temperature: 0.6 },
+    );
+    const data = parseJsonReply(text) || {};
+    const items = Array.isArray(data.items) ? data.items : [];
     return items
       .filter((n) => n && (n.title || n.summary))
       .slice(0, 4)
@@ -369,13 +497,34 @@ export const generateNewsForHolding = async (holding) => {
 // getGoalAdvice returns: { onTrack, suggestion, monthlyNeeded }
 export const getGoalAdvice = async (goal, currentSavings, monthlyExpenses, portfolio) => {
   try {
-    const data = await callProxy(TYPE.GOAL_ADVICE, {
-      goal, currentSavings, monthlyExpenses, portfolio,
-    });
+    const text = await callHuggingFace(
+      [
+        { role: 'system', content: JSON_SYSTEM },
+        {
+          role: 'user',
+          content:
+`Assess this financial goal for an Indian investor.
+
+Goal: ${JSON.stringify(goal)}
+Current savings: ${JSON.stringify(currentSavings)}
+Monthly expenses: ${JSON.stringify(monthlyExpenses)}
+Portfolio: ${JSON.stringify(portfolio)}
+
+Return JSON:
+{
+  "onTrack": <true|false>,
+  "suggestion": "<one short actionable line, <180 chars>",
+  "monthlyNeeded": <INR amount needed per month, integer>
+}`,
+        },
+      ],
+      { maxTokens: 250, temperature: 0.4 },
+    );
+    const data = parseJsonReply(text) || {};
     return {
-      onTrack: Boolean(data?.onTrack),
-      suggestion: data?.suggestion || '',
-      monthlyNeeded: Math.max(0, Number(data?.monthlyNeeded) || 0),
+      onTrack: Boolean(data.onTrack),
+      suggestion: String(data.suggestion || '').slice(0, 200),
+      monthlyNeeded: Math.max(0, Math.round(Number(data.monthlyNeeded) || 0)),
     };
   } catch {
     return { onTrack: false, suggestion: 'Goal advice is offline.', monthlyNeeded: 0, offline: true };
@@ -384,20 +533,32 @@ export const getGoalAdvice = async (goal, currentSavings, monthlyExpenses, portf
 
 // ── Local normalisers / fallbacks ─────────────────────────────────────
 const normaliseStockAnalysis = (data, symbol) => {
-  const verdict = ['BUY', 'HOLD', 'SELL'].includes(data?.verdict) ? data.verdict : 'HOLD';
-  const confidence = Math.max(0, Math.min(100, Number(data?.confidence) || 50));
-  const reasons = Array.isArray(data?.reasons) ? data.reasons.slice(0, 3).map((r) => String(r).slice(0, 200)) : [];
-  const risks   = Array.isArray(data?.risks)   ? data.risks.slice(0, 2).map((r) => String(r).slice(0, 200)) : [];
-  const targetPrice = data?.targetPrice != null ? Number(data.targetPrice) : null;
-  const timeHorizon = data?.timeHorizon || '6-12 months';
+  const d = data || {};
+  const verdict = ['BUY', 'HOLD', 'SELL'].includes(d.verdict) ? d.verdict : 'HOLD';
+  const confidence = Math.max(0, Math.min(100, Number(d.confidence) || 50));
+  const reasons = Array.isArray(d.reasons) ? d.reasons.slice(0, 3).map((r) => String(r).slice(0, 200)) : [];
+  const risks   = Array.isArray(d.risks)   ? d.risks.slice(0, 2).map((r) => String(r).slice(0, 200)) : [];
+  const targetPrice = d.targetPrice != null ? Number(d.targetPrice) : null;
+  const timeHorizon = d.timeHorizon || '6-12 months';
   return { symbol, verdict, confidence, reasons, risks, targetPrice, timeHorizon };
+};
+
+const offlineMessageFor = (err) => {
+  switch (err?.kind) {
+    case 'config':       return err.message || 'AI not configured. Check EXPO_PUBLIC_HUGGING_FACE_API_KEY.';
+    case 'rate_limit':   return 'HuggingFace rate-limited — try again in a minute.';
+    case 'limit_reached':return 'Daily AI cap hit — resets after midnight.';
+    case 'bad_response': return 'AI returned an empty reply — try Re-analyse.';
+    case 'network':      return `AI network error${err?.status ? ` (${err.status})` : ''} — check connection.`;
+    default:             return 'AI unreachable — showing neutral default.';
+  }
 };
 
 const offlineStockAnalysis = (symbol, err) => ({
   symbol,
   verdict: 'HOLD',
   confidence: 50,
-  reasons: ['Backend unreachable — showing neutral default.'],
+  reasons: [offlineMessageFor(err)],
   risks: [],
   targetPrice: null,
   timeHorizon: '—',
@@ -405,7 +566,10 @@ const offlineStockAnalysis = (symbol, err) => ({
   errorKind: err?.kind || 'unknown',
 });
 
-// Default export for screens that prefer namespace imports.
+// Back-compat shim — old code called setProxyUrlOverride. Now a no-op
+// since we no longer have a proxy.
+export const setProxyUrlOverride = async () => {};
+
 export default {
   analyzeStock,
   getFinanceInsight,

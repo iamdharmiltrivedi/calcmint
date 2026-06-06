@@ -37,7 +37,7 @@ export const useMarketStore = create((set, get) => ({
         try {
           const price = h.type === 'MF'
             ? await fetchMFNav(h.symbol)
-            : await fetchStockPrice(h.symbol);
+            : await fetchStockPrice({ symbol: h.symbol, exchange: h.exchange });
           portfolio.setPrice(h.symbol, price);
         } catch {
           // graceful per-holding failure
@@ -51,11 +51,29 @@ export const useMarketStore = create((set, get) => ({
 
   refreshPriceFor: async (h) => {
     try {
-      const price = h.type === 'MF' ? await fetchMFNav(h.symbol, { force: true }) : await fetchStockPrice(h.symbol, { force: true });
+      const price = h.type === 'MF'
+        ? await fetchMFNav(h.symbol, { force: true })
+        : await fetchStockPrice({ symbol: h.symbol, exchange: h.exchange }, { force: true });
       usePortfolioStore.getState().setPrice(h.symbol, price);
       return price;
     } catch {
       return null;
+    }
+  },
+
+  refreshWatchlistPrices: async () => {
+    const list = get().watchlist;
+    if (!list || !list.length) return;
+    const portfolio = usePortfolioStore.getState();
+    for (const item of list) {
+      try {
+        const price = item.type === 'MF'
+          ? await fetchMFNav(item.symbol)
+          : await fetchStockPrice({ symbol: item.symbol, exchange: item.exchange });
+        portfolio.setPrice(item.symbol, price);
+      } catch {
+        // ignore per-item failure
+      }
     }
   },
 
@@ -76,7 +94,7 @@ export const useMarketStore = create((set, get) => ({
   },
 
   // ── AI ───────────────────────────────────────────────────────────────
-  analyzeHolding: async (holding) => {
+  analyzeHolding: async (holding, opts = {}) => {
     const portfolio = usePortfolioStore.getState();
     const priceObj = portfolio.prices[holding.symbol];
     set((s) => {
@@ -84,7 +102,7 @@ export const useMarketStore = create((set, get) => ({
       return { analyzingSymbols: next };
     });
     try {
-      const analysis = await analyseHolding({ holding, currentPrice: priceObj?.currentPrice });
+      const analysis = await analyseHolding({ holding, currentPrice: priceObj?.currentPrice }, opts);
       portfolio.setAnalysis(holding.symbol, analysis);
       return analysis;
     } finally {

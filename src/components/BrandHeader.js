@@ -1,7 +1,8 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../constants/colors';
+import { AppText } from './typography';
 
 // Consistent top-of-screen brand for all tab-level screens.
 // Right side accepts up to two icon buttons (e.g. search + settings).
@@ -15,8 +16,8 @@ export default function BrandHeader({ rightActions = [] }) {
           resizeMode="cover"
         />
         <View>
-          <Text style={styles.brandName}>CalcMint</Text>
-          <Text style={styles.brandTagline}>Plan · Save · Grow</Text>
+          <AppText variant="cardTitle" style={styles.brandName}>CalcMint</AppText>
+          <AppText variant="caption" color={COLORS.subtext} style={styles.brandTagline}>Plan · Save · Grow</AppText>
         </View>
       </View>
       {rightActions.length > 0 ? (
@@ -49,8 +50,8 @@ const styles = StyleSheet.create({
   },
   brandRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   brandMark: { width: 36, height: 36, borderRadius: 11 },
-  brandName: { fontSize: 15, fontWeight: '800', color: COLORS.text, letterSpacing: -0.2 },
-  brandTagline: { fontSize: 10.5, color: COLORS.subtext, fontWeight: '600', marginTop: 1 },
+  brandName: { letterSpacing: -0.2 },
+  brandTagline: { marginTop: 1 },
   iconBtnRow: { flexDirection: 'row', gap: 8 },
   iconBtn: {
     width: 38, height: 38, borderRadius: 12,

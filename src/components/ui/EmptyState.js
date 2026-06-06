@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../../constants/colors';
+import { AppText } from '../typography';
 
 // Illustrated empty state with a clear CTA. Icon background acts as the
 // "illustration" — keeps the asset story lean and stays on brand.
@@ -26,15 +27,19 @@ export default function EmptyState({
           )}
         </View>
       </View>
-      <Text style={styles.title}>{title}</Text>
-      {message ? <Text style={styles.message}>{message}</Text> : null}
+      <AppText variant="cardTitle" style={styles.title}>{title}</AppText>
+      {message ? (
+        <AppText variant="bodySmall" color={COLORS.subtext} style={styles.message}>
+          {message}
+        </AppText>
+      ) : null}
       {ctaLabel && onCtaPress ? (
         <TouchableOpacity
           style={[styles.cta, { backgroundColor: accent }]}
           onPress={onCtaPress}
           activeOpacity={0.85}
         >
-          <Text style={styles.ctaText}>{ctaLabel}</Text>
+          <AppText variant="button" color="#fff">{ctaLabel}</AppText>
         </TouchableOpacity>
       ) : null}
     </View>
@@ -51,8 +56,7 @@ const styles = StyleSheet.create({
     width: 62, height: 62, borderRadius: 31,
     alignItems: 'center', justifyContent: 'center',
   },
-  title:   { fontSize: 16, fontWeight: '800', color: COLORS.text, marginTop: 14, textAlign: 'center' },
-  message: { fontSize: 13, color: COLORS.subtext, marginTop: 6, lineHeight: 19, textAlign: 'center', maxWidth: 280 },
+  title:   { marginTop: 14, textAlign: 'center' },
+  message: { marginTop: 6, textAlign: 'center', maxWidth: 280 },
   cta:     { marginTop: 16, paddingVertical: 12, paddingHorizontal: 22, borderRadius: 12 },
-  ctaText: { color: '#fff', fontWeight: '800', fontSize: 13 },
 });

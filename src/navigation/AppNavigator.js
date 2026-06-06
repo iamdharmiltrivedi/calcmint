@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import {
   NavigationContainer,
+  StackActions,
   getStateFromPath as rnGetStateFromPath,
 } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
@@ -312,15 +313,19 @@ const MainTabs = () => {
         component={MarketsStack}
         listeners={({ navigation, route }) => ({
           // Tapping the Markets footer button always returns to the
-          // Markets home (the portfolio dashboard). Without this, React
-          // Navigation keeps the stack state and the user lands on the
-          // last-viewed stock / MF / IPO detail page instead.
+          // Markets home (the portfolio dashboard). We dispatch
+          // popToTop targeted at the Markets stack's own key — plain
+          // navigation.navigate(...) only brings the home screen
+          // forward, it doesn't drop the intermediate routes, so a
+          // second tab tap would land on whatever was pushed on top.
           tabPress: (e) => {
-            const depth = route.state?.routes?.length ?? 0;
-            if (depth > 1) {
-              e.preventDefault();
-              navigation.navigate('Markets', { screen: 'MarketsHomeScreen' });
-            }
+            const stackState = route.state;
+            if (!stackState || (stackState.index ?? 0) === 0) return;
+            e.preventDefault();
+            navigation.dispatch({
+              ...StackActions.popToTop(),
+              target: stackState.key,
+            });
           },
         })}
       />
@@ -328,7 +333,10 @@ const MainTabs = () => {
       <Tab.Screen
         name="Money"
         component={MoneyTabStack}
-        options={overdue > 0 ? { tabBarBadge: overdue > 9 ? '9+' : String(overdue) } : {}}
+        options={{
+          tabBarLabel: 'Wallet',
+          ...(overdue > 0 ? { tabBarBadge: overdue > 9 ? '9+' : String(overdue) } : {}),
+        }}
       />
       <Tab.Screen name="More"    component={MoreTabStack} />
     </Tab.Navigator>

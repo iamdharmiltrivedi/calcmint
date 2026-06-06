@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo, useCallback } from 'react';
+import React, { useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   RefreshControl, Alert, ActivityIndicator, Dimensions,
@@ -47,6 +47,7 @@ export default function StockDetailScreen({ route, navigation }) {
 
   const refreshPriceFor = useMarketStore((s) => s.refreshPriceFor);
   const analyzeHolding  = useMarketStore((s) => s.analyzeHolding);
+  const refreshNews     = useMarketStore((s) => s.refreshNews);
   const analyzingSet    = useMarketStore((s) => s.analyzingSymbols);
   const news            = useMarketStore((s) => s.news);
   const online          = useMarketStore((s) => s.online);
@@ -54,30 +55,63 @@ export default function StockDetailScreen({ route, navigation }) {
 
   const [refreshing, setRefreshing] = useState(false);
   const m = getMetrics(holdingId);
+  // One auto-analyse attempt per mounted screen per symbol. Without this
+  // ref, an offline result would update `analyses`, re-fire this effect,
+  // re-trigger HF, and lock up the JS thread.
+  const autoTriedRef = useRef(null);
+  const autoNewsRef  = useRef(null);
 
   useEffect(() => {
-    if (m && !analyses[m.holding.symbol]) {
-      analyzeHolding(m.holding).catch(() => {});
-    }
+    if (!m) return;
+    const sym = m.holding.symbol;
+    if (autoTriedRef.current === sym) return;
+    const existing = analyses[sym];
+    if (existing && !existing.offline) return;
+    autoTriedRef.current = sym;
+    analyzeHolding(m.holding, { force: !!existing }).catch(() => {});
   }, [m, analyses, analyzeHolding]);
+
+  // Auto-fetch news once per mounted symbol when there's nothing cached
+  // for it. Mirrors the analyse pattern — one attempt, no loop.
+  useEffect(() => {
+    if (!m) return;
+    const sym = m.holding.symbol;
+    if (autoNewsRef.current === sym) return;
+    const hasRelated = news.some((n) => n.relatedSymbols.includes(sym));
+    if (hasRelated) return;
+    autoNewsRef.current = sym;
+    refreshNews([m.holding]).catch(() => {});
+  }, [m, news, refreshNews]);
 
   const onRefresh = useCallback(async () => {
     if (!m) return;
     setRefreshing(true);
     await refreshPriceFor(m.holding);
-    await analyzeHolding(m.holding).catch(() => {});
+    await Promise.all([
+      analyzeHolding(m.holding, { force: true }).catch(() => {}),
+      refreshNews([m.holding]).catch(() => {}),
+    ]);
     setRefreshing(false);
-  }, [m, refreshPriceFor, analyzeHolding]);
+  }, [m, refreshPriceFor, analyzeHolding, refreshNews]);
 
   const related = useMemo(
     () => (m ? news.filter((n) => n.relatedSymbols.includes(m.holding.symbol)).slice(0, 3) : []),
     [news, m],
   );
 
+  // Safe back: deep links (calcmint://stock/:symbol) and post-delete
+  // can leave an empty stack. Fall back to MarketsHomeScreen when
+  // there's nothing above us — otherwise React Navigation throws
+  // "The action Go_BACK was not handled".
+  const safeBack = useCallback(() => {
+    if (navigation.canGoBack()) navigation.goBack();
+    else navigation.navigate('MarketsHomeScreen');
+  }, [navigation]);
+
   if (!m) {
     return (
       <SafeAreaView style={styles.safe} edges={['top']}>
-        <ScreenHeader parent="Markets" title="Stock" onBack={() => navigation.goBack()} />
+        <ScreenHeader parent="Markets" title="Stock" onBack={safeBack} />
         <EmptyState icon="alert-circle-outline" title="Holding not found" />
       </SafeAreaView>
     );
@@ -94,7 +128,7 @@ export default function StockDetailScreen({ route, navigation }) {
   const onDelete = () => {
     Alert.alert('Remove holding', `Remove ${holding.name} from your portfolio?`, [
       { text: 'Cancel', style: 'cancel' },
-      { text: 'Remove', style: 'destructive', onPress: async () => { await remove(holding.id); navigation.goBack(); } },
+      { text: 'Remove', style: 'destructive', onPress: async () => { await remove(holding.id); safeBack(); } },
     ]);
   };
 
@@ -110,8 +144,8 @@ export default function StockDetailScreen({ route, navigation }) {
     <SafeAreaView style={styles.safe} edges={['top']}>
       <ScreenHeader
         parent="Markets"
-        title={holding.symbol}
-        onBack={() => navigation.goBack()}
+        title={holding.type === 'MF' ? holding.name : holding.symbol}
+        onBack={safeBack}
         right={[
           { icon: 'create-outline', onPress: () => navigation.navigate('AddEditStock', { holdingId: holding.id }) },
           { icon: 'trash-outline',  onPress: onDelete },
@@ -185,7 +219,7 @@ export default function StockDetailScreen({ route, navigation }) {
               <Text style={styles.aiBody}>{analyzing ? 'Analysing…' : 'Tap “Re-analyse” to generate.'}</Text>
             )}
             {aiAnalysis && (
-              <TouchableOpacity style={styles.aiRefresh} onPress={() => analyzeHolding(holding)}>
+              <TouchableOpacity style={styles.aiRefresh} onPress={() => analyzeHolding(holding, { force: true })}>
                 <Ionicons name="refresh" size={13} color={COLORS.primary} />
                 <Text style={styles.aiRefreshText}>Re-analyse</Text>
               </TouchableOpacity>
